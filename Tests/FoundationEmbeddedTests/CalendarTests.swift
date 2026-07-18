@@ -86,6 +86,39 @@ import Testing
         #expect(components.second == 59)
     }
 
+    // MARK: - Date Bridging
+
+    @Test func dateFromComponents() {
+        let calendar = Calendar.current
+        #expect(calendar.date(from: DateComponents(year: 2001, month: 1, day: 1))?
+            .timeIntervalSinceReferenceDate == 0)
+        #expect(calendar.date(from: DateComponents(year: 2001, month: 1)) == nil)
+    }
+
+    @Test func componentsFromDate() {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: Date(timeIntervalSinceReferenceDate: 0))
+        #expect(components.year == 2001)
+        #expect(components.month == 1)
+        #expect(components.day == 1)
+    }
+
+    @Test func singleComponentFromDate() {
+        let calendar = Calendar.current
+        let reference = Date(timeIntervalSinceReferenceDate: 0)
+        #expect(calendar.component(.era, from: reference) == 1)
+        #expect(calendar.component(.year, from: reference) == 2001)
+        #expect(calendar.component(.month, from: reference) == 1)
+        #expect(calendar.component(.day, from: reference) == 1)
+        #expect(calendar.component(.weekday, from: reference) == 2)
+        #expect(calendar.component(.nanosecond, from: reference) == 0)
+
+        let oneHourOneMinuteOneSecond = Date(timeIntervalSinceReferenceDate: 3661)
+        #expect(calendar.component(.hour, from: oneHourOneMinuteOneSecond) == 1)
+        #expect(calendar.component(.minute, from: oneHourOneMinuteOneSecond) == 1)
+        #expect(calendar.component(.second, from: oneHourOneMinuteOneSecond) == 1)
+    }
+
     @Test func componentsRoundTrip() {
         let calendar = Calendar.current
         let original = DateComponents(year: 2024, month: 6, day: 15, hour: 14, minute: 25, second: 45)
