@@ -7,8 +7,6 @@
 //  Not API-complete — storage-layer round-tripping only.
 //
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 public struct UUID: Sendable {
 
     public typealias ByteValue = (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8)
@@ -262,5 +260,3 @@ fileprivate extension UInt8 {
         return String([hexDigits[high], hexDigits[low]])
     }
 }
-
-#endif
