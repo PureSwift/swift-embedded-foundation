@@ -1,0 +1,101 @@
+import Testing
+@testable import FoundationEmbedded
+
+@Suite struct CalendarTests {
+
+    @Test func onlyGregorian() {
+        #expect(Calendar.current.identifier == .gregorian)
+        #expect(Calendar(identifier: .gregorian).timeZone == .gmt)
+    }
+
+    // MARK: - Civil <-> Days
+
+    @Test func daysFromCivilEpoch() {
+        #expect(Calendar.daysFromCivil(year: 1970, month: 1, day: 1) == 0)
+        // 2001-01-01 is 978307200 seconds after the epoch == 11323 days.
+        #expect(Calendar.daysFromCivil(year: 2001, month: 1, day: 1) == 11323)
+    }
+
+    @Test func civilFromDaysEpoch() {
+        let epoch = Calendar.civilFromDays(0)
+        #expect(epoch.year == 1970)
+        #expect(epoch.month == 1)
+        #expect(epoch.day == 1)
+    }
+
+    @Test func civilRoundTrip() {
+        for (year, month, day) in [(1970, 1, 1), (2001, 1, 1), (2000, 2, 29), (2024, 12, 31), (1900, 3, 1)] {
+            let days = Calendar.daysFromCivil(year: year, month: month, day: day)
+            let civil = Calendar.civilFromDays(days)
+            #expect(civil.year == year)
+            #expect(civil.month == month)
+            #expect(civil.day == day)
+        }
+    }
+
+    @Test func weekday() {
+        // 1970-01-01 was a Thursday (5), 2001-01-01 a Monday (2).
+        #expect(Calendar.weekday(fromDaysSinceEpoch: 0) == 5)
+        #expect(Calendar.weekday(fromDaysSinceEpoch: 11323) == 2)
+    }
+
+    // MARK: - Components <-> TimeInterval
+
+    @Test func referenceDateIsZero() {
+        let calendar = Calendar.current
+        let components = DateComponents(year: 2001, month: 1, day: 1, hour: 0, minute: 0, second: 0)
+        #expect(calendar.timeIntervalSinceReferenceDate(from: components) == 0)
+    }
+
+    @Test func missingFieldsReturnNil() {
+        let calendar = Calendar.current
+        #expect(calendar.timeIntervalSinceReferenceDate(from: DateComponents(year: 2001, month: 1)) == nil)
+        #expect(calendar.timeIntervalSinceReferenceDate(from: DateComponents()) == nil)
+    }
+
+    @Test func componentTimeZoneOffsetApplied() {
+        let calendar = Calendar.current
+        let plusOne = DateComponents(
+            year: 2001, month: 1, day: 1, hour: 0, minute: 0, second: 0,
+            timeZone: TimeZone(secondsFromGMT: 3600))
+        // Midnight at +01:00 is 23:00 UTC the previous day: one hour before reference.
+        #expect(calendar.timeIntervalSinceReferenceDate(from: plusOne) == -3600)
+    }
+
+    @Test func decomposeReferenceDate() {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: 0)
+        #expect(components.year == 2001)
+        #expect(components.month == 1)
+        #expect(components.day == 1)
+        #expect(components.hour == 0)
+        #expect(components.minute == 0)
+        #expect(components.second == 0)
+        #expect(components.weekday == 2)
+    }
+
+    @Test func decomposeNegativeInterval() {
+        let calendar = Calendar.current
+        // One second before the reference date: 2000-12-31 23:59:59.
+        let components = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: -1)
+        #expect(components.year == 2000)
+        #expect(components.month == 12)
+        #expect(components.day == 31)
+        #expect(components.hour == 23)
+        #expect(components.minute == 59)
+        #expect(components.second == 59)
+    }
+
+    @Test func componentsRoundTrip() {
+        let calendar = Calendar.current
+        let original = DateComponents(year: 2024, month: 6, day: 15, hour: 14, minute: 25, second: 45)
+        let interval = calendar.timeIntervalSinceReferenceDate(from: original)
+        let roundTripped = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: interval!)
+        #expect(roundTripped.year == 2024)
+        #expect(roundTripped.month == 6)
+        #expect(roundTripped.day == 15)
+        #expect(roundTripped.hour == 14)
+        #expect(roundTripped.minute == 25)
+        #expect(roundTripped.second == 45)
+    }
+}
