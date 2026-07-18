@@ -5,6 +5,15 @@ import PackageDescription
 
 let package = Package(
     name: "swift-embedded-foundation",
+    // `UInt128` (used by the UUID shim) requires these minimums on Apple platforms.
+    platforms: [
+        .macOS(.v15),
+        .iOS(.v18),
+        .tvOS(.v18),
+        .watchOS(.v11),
+        .macCatalyst(.v18),
+        .visionOS(.v2),
+    ],
     products: [
         .library(
             name: "FoundationEmbedded",
