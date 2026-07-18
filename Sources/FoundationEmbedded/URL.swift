@@ -7,8 +7,6 @@
 //  no real parsing/resolution.
 //
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 public struct URL: Sendable {
 
     public let absoluteString: String
@@ -60,6 +58,4 @@ extension URL: Codable {
         try container.encode(absoluteString)
     }
 }
-#endif
-
 #endif
