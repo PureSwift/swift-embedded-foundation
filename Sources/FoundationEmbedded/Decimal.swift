@@ -8,8 +8,6 @@
 //  in numeric contexts.
 //
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 public struct Decimal: Sendable {
 
     /// Normalized decimal string: optional `-` sign, digits, optional `.` fraction
@@ -133,6 +131,4 @@ extension Decimal: Codable {
         try container.encode(description)
     }
 }
-#endif
-
 #endif
