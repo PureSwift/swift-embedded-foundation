@@ -24,6 +24,12 @@ import Testing
         #expect(TimeZone(identifier: "GMT+01")?.secondsFromGMT == 3600)
     }
 
+    @Test func secondsFromGMTForDate() {
+        // Fixed offset, so the date argument is ignored.
+        #expect(TimeZone.gmt.secondsFromGMT(for: Date(timeIntervalSinceReferenceDate: 0)) == 0)
+        #expect(TimeZone(secondsFromGMT: 3600)?.secondsFromGMT(for: Date(timeIntervalSinceReferenceDate: 5)) == 3600)
+    }
+
     @Test func invalidIdentifiers() {
         #expect(TimeZone(identifier: "America/New_York") == nil)
         #expect(TimeZone(identifier: "GMT+99:99") == nil)

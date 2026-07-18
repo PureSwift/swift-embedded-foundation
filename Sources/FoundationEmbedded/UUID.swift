@@ -233,30 +233,4 @@ fileprivate extension UInt128 {
         var value = self
         return Swift.withUnsafeBytes(of: &value) { $0.loadUnaligned(as: UUID.ByteValue.self) }
     }
-
-    init?(hexadecimal string: String) {
-        guard string.utf8.count == 32 else { return nil }
-        var result: UInt128 = 0
-        for byte in string.utf8 {
-            let nibble: UInt128
-            switch byte {
-            case 0x30...0x39: nibble = UInt128(byte - 0x30)        // '0'-'9'
-            case 0x41...0x46: nibble = UInt128(byte - 0x41 + 10)   // 'A'-'F'
-            case 0x61...0x66: nibble = UInt128(byte - 0x61 + 10)   // 'a'-'f'
-            default: return nil
-            }
-            result = (result << 4) | nibble
-        }
-        self = result
-    }
-}
-
-fileprivate extension UInt8 {
-
-    func toHexadecimal() -> String {
-        let hexDigits: [Character] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]
-        let high = Int(self >> 4)
-        let low = Int(self & 0x0F)
-        return String([hexDigits[high], hexDigits[low]])
-    }
 }
