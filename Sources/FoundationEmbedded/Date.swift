@@ -6,8 +6,6 @@
 //  (e.g. Embedded Swift). Not API-complete — storage-layer round-tripping only.
 //
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 public typealias TimeInterval = Double
 
 public struct Date: Sendable {
@@ -113,6 +111,4 @@ extension Date: Codable {
         try container.encode(timeIntervalSinceReferenceDate)
     }
 }
-#endif
-
 #endif
