@@ -6,8 +6,6 @@
 //  (e.g. Embedded Swift). Not API-complete — storage-layer round-tripping only.
 //
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 public struct Data: Sendable {
 
     internal var bytes: [UInt8]
@@ -105,6 +103,4 @@ extension Data: Codable {
         }
     }
 }
-#endif
-
 #endif
