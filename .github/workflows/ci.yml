@@ -16,6 +16,18 @@ jobs:
       with:
         swift-version: 6.3.2
 
+  embedded:
+    name: Embedded Swift (6.3.3)
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    # The Xcode-bundled toolchain has no Embedded stdlib; install a swift.org one.
+    - uses: swift-actions/setup-swift@v2
+      with:
+        swift-version: "6.3.3"
+    - name: Cross-compile for bare metal + run embedded smoke test
+      run: Scripts/embedded-test.sh
+
   windows:
     name: Windows (Swift 6.3.2)
     runs-on: windows-latest
