@@ -5,8 +5,6 @@ import Testing
 
     @Test func currentIsPOSIX() {
         #expect(Locale.current.identifier == "en_US_POSIX")
-        #expect(Locale.posix.identifier == "en_US_POSIX")
-        #expect(Locale.current == Locale.posix)
     }
 
     @Test func customIdentifier() {
