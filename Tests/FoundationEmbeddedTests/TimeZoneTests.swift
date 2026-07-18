@@ -33,7 +33,7 @@ import Testing
     @Test func secondsFromGMTInitializer() {
         let zone = TimeZone(secondsFromGMT: 3600)
         #expect(zone?.secondsFromGMT == 3600)
-        #expect(zone?.identifier == "GMT+01:00")
+        #expect(zone?.identifier == "GMT+0100")
         #expect(TimeZone(secondsFromGMT: 0)?.identifier == "GMT")
         #expect(TimeZone(secondsFromGMT: -19 * 3600) == nil)
     }
