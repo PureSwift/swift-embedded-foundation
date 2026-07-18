@@ -126,18 +126,16 @@ extension TimeZone {
 
 // MARK: - Offset Accessor
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
 extension TimeZone {
 
     /// The offset from GMT, in seconds, for the given date.
     ///
     /// This shim is a fixed offset, so the date is ignored. Signature matches
-    /// `Foundation.TimeZone.secondsFromGMT(for:)`. Gated on the `Date` shim.
+    /// `Foundation.TimeZone.secondsFromGMT(for:)`.
     public func secondsFromGMT(for date: Date) -> Int {
         secondsFromGMT
     }
 }
-#endif
 
 // MARK: - CustomStringConvertible
 
