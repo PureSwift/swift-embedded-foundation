@@ -7,9 +7,8 @@
 //  responsible for gating between this and `Foundation.Calendar`.
 //
 //  Gregorian calendar only. The proleptic Gregorian date <-> time-interval
-//  math is Foundation-free and always compiled. The `Date`-bridging API is
-//  gated on the (embedded-only) `Date` shim, so on a platform that has
-//  Foundation you would import `Foundation.Calendar` instead.
+//  math is Foundation-free. Compiles on any platform, using this module's own
+//  `Date`; the consumer decides when to use it in place of `Foundation.Calendar`.
 //
 
 public struct Calendar: Sendable, Hashable {
@@ -131,8 +130,6 @@ extension Calendar {
 
 // MARK: - Date Bridging
 
-#if !canImport(FoundationEssentials) && !canImport(Foundation)
-
 extension Calendar {
 
     /// Convert `DateComponents` into a `Date`, or `nil` if year/month/day are missing.
@@ -167,8 +164,6 @@ extension Calendar {
         }
     }
 }
-
-#endif
 
 // MARK: - Codable
 
