@@ -29,11 +29,6 @@ extension Locale {
     public static var current: Locale {
         Locale(identifier: "en_US_POSIX")
     }
-
-    /// The POSIX locale (`en_US_POSIX`).
-    public static var posix: Locale {
-        Locale(identifier: "en_US_POSIX")
-    }
 }
 
 // MARK: - CustomStringConvertible
