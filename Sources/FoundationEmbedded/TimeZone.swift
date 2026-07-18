@@ -16,10 +16,13 @@ public struct TimeZone: Sendable, Hashable {
     public let identifier: String
 
     /// The offset from GMT, in seconds. Fixed — no daylight-saving transitions.
-    public let secondsFromGMT: Int
+    ///
+    /// - Note: Internal. `Foundation.TimeZone` exposes the offset only through
+    ///   `secondsFromGMT(for:)`, so this stays out of the public surface.
+    let secondsFromGMT: Int
 
     /// Create a fixed-offset time zone with an explicit identifier.
-    public init(identifier: String, secondsFromGMT: Int) {
+    init(identifier: String, secondsFromGMT: Int) {
         self.identifier = identifier
         self.secondsFromGMT = secondsFromGMT
     }
@@ -75,7 +78,8 @@ extension TimeZone {
         let magnitude = seconds < 0 ? -seconds : seconds
         let hours = magnitude / 3600
         let minutes = (magnitude % 3600) / 60
-        return "GMT" + sign + twoDigits(hours) + ":" + twoDigits(minutes)
+        // Matches Foundation's format, e.g. "GMT+0100" (no colon).
+        return "GMT" + sign + twoDigits(hours) + twoDigits(minutes)
     }
 
     private static func twoDigits(_ value: Int) -> String {
@@ -119,6 +123,21 @@ extension TimeZone {
         return sign * (hours * 3600 + minutes * 60)
     }
 }
+
+// MARK: - Offset Accessor
+
+#if !canImport(FoundationEssentials) && !canImport(Foundation)
+extension TimeZone {
+
+    /// The offset from GMT, in seconds, for the given date.
+    ///
+    /// This shim is a fixed offset, so the date is ignored. Signature matches
+    /// `Foundation.TimeZone.secondsFromGMT(for:)`. Gated on the `Date` shim.
+    public func secondsFromGMT(for date: Date) -> Int {
+        secondsFromGMT
+    }
+}
+#endif
 
 // MARK: - CustomStringConvertible
 
