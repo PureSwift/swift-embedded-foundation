@@ -31,7 +31,13 @@ import Foundation
     }
 
     @Test func descriptionMatchesFoundation() {
+        #if os(Windows)
+        // ucrt cannot format dates before 1970, so Foundation's description is
+        // "<description unavailable>" there; this shim formats them correctly.
+        let intervals: [Double] = [0, -1, 1, -978307200, 748889145, 86400.5]
+        #else
         let intervals: [Double] = [0, -1, 1, -978307200, 748889145, 86400.5, -2203891200]
+        #endif
         for interval in intervals {
             let ours = FoundationEmbedded.Date(timeIntervalSinceReferenceDate: interval).description
             let theirs = Foundation.Date(timeIntervalSinceReferenceDate: interval).description
