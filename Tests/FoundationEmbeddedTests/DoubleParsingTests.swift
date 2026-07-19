@@ -128,6 +128,47 @@ import Foundation
         }
     }
 
+    /// Narrowing helpers mirroring the `strtof`/`strtof16` exports: parse at
+    /// `Double` precision, then narrow.
+    private func parseFloat(_ string: String) -> Float? {
+        string.withCString { pointer in
+            let (value, consumed) = StrtodParser.parse(pointer)
+            return consumed > 0 && consumed == string.utf8.count ? Float(value) : nil
+        }
+    }
+
+    private func parseFloat16(_ string: String) -> Float16? {
+        string.withCString { pointer in
+            let (value, consumed) = StrtodParser.parse(pointer)
+            return consumed > 0 && consumed == string.utf8.count ? Float16(value) : nil
+        }
+    }
+
+    @Test func floatParityWithNativeParsing() {
+        let strings = [
+            "1.5", "3.14", "0.1", "0.2", "0.3", "-2.5", "1e10", "2.5e-3", "1.1",
+            "123.456", "16777217", "3.4028235e38", "1.4e-45", "9.999999e37",
+            "1e40", "1e-50", "0x1.8p1", "inf", "-inf", "nan",
+        ]
+        for string in strings {
+            let ours = parseFloat(string)
+            let theirs = Float(string)
+            #expect(ours?.bitPattern == theirs?.bitPattern, "Float parity mismatch for \(string)")
+        }
+    }
+
+    @Test func float16ParityWithNativeParsing() {
+        let strings = [
+            "1.5", "3.14", "0.1", "65504", "6.1e-5", "0.0001", "2048", "2049",
+            "-1.5", "1e10", "1e-10", "inf", "nan",
+        ]
+        for string in strings {
+            let ours = parseFloat16(string)
+            let theirs = Float16(string)
+            #expect(ours?.bitPattern == theirs?.bitPattern, "Float16 parity mismatch for \(string)")
+        }
+    }
+
     @Test func extremeExponentsWithinTolerance() {
         // The stepwise-scaling fallback may be a few ulp from correctly rounded.
         for string in ["1e300", "-2.5e-300", "9.87654321e250", "1.23e-280",
