@@ -98,6 +98,16 @@ check(parsedURL.query == "k=v", "URL query")
 check(parsedURL.fragment == "frag", "URL fragment")
 check(parsedURL.lastPathComponent == "b.txt", "URL lastPathComponent")
 
+// MARK: Double parsing (via the exported _swift_stdlib_strtod_clocale)
+
+check(Double("1.5") == 1.5, "Double parse")
+check(Double("-2.5e2") == -250, "Double exponent")
+check(Double("0x1.8p1") == 3.0, "Double hex")
+check(Double("1e999") == .infinity, "Double overflow")
+check(Double("nan")?.isNaN == true, "Double nan")
+check(Double("1e") == nil, "Double reject")
+check(Double("") == nil, "Double empty")
+
 // MARK: Calendar
 
 let calendar = Calendar.current
