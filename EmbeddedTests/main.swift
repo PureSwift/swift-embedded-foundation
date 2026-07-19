@@ -112,6 +112,36 @@ check(Float("3.4028235e38") == Float.greatestFiniteMagnitude, "Float max")
 check(Float16("1.5") == 1.5, "Float16 parse")
 check(Float16("65504") == Float16.greatestFiniteMagnitude, "Float16 max")
 
+// MARK: HTTP dates
+
+let httpStyle = Date.HTTPFormatStyle()
+let httpReference = Date(timeIntervalSince1970: 784111777)
+check(httpStyle.format(httpReference) == "Sun, 06 Nov 1994 08:49:37 GMT", "HTTP format")
+check((try? httpStyle.parse("Sun, 06 Nov 1994 08:49:37 GMT")) == httpReference, "HTTP parse")
+check((try? httpStyle.parse("06 Nov 1994 08:49:37 GMT")) == httpReference, "HTTP parse without weekday")
+check((try? httpStyle.parse("not a date")) == nil, "HTTP reject")
+
+// MARK: ISO 8601
+
+let isoStyle = Date.ISO8601FormatStyle()
+let isoReference = Date(timeIntervalSince1970: 1718461545)
+check(isoStyle.format(isoReference) == "2024-06-15T14:25:45Z", "ISO 8601 format")
+check((try? isoStyle.parse("2024-06-15T14:25:45Z")) == isoReference, "ISO 8601 parse")
+check((try? isoStyle.parse("2024-06-15T14:25:45+01:00")) == isoReference - 3600, "ISO 8601 offset")
+check((try? isoStyle.parse("2024-06-15T14:25:45")) == nil, "ISO 8601 reject")
+let fractionalStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+check(fractionalStyle.format(isoReference) == "2024-06-15T14:25:45.000Z", "ISO 8601 fractional")
+
+// MARK: IndexPath
+
+var indexPath = IndexPath(indexes: [1, 2])
+indexPath += IndexPath(index: 3)
+check(Array(indexPath) == [1, 2, 3], "IndexPath appending")
+check(indexPath[1] == 2, "IndexPath subscript")
+check(Array(indexPath.dropLast()) == [1, 2], "IndexPath dropLast")
+check(IndexPath(indexes: [1]).compare(IndexPath(indexes: [1, 2])) == .orderedAscending, "IndexPath compare")
+check(IndexPath(indexes: [1, 2]) == IndexPath(arrayLiteral: 1, 2), "IndexPath equality")
+
 // MARK: Calendar
 
 let calendar = Calendar.current
