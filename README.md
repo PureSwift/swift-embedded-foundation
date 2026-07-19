@@ -27,6 +27,9 @@ Cortex-M and RISC-V — while remaining buildable on every hosted platform
 | `DateInterval` | intervals, `contains`, `intersects`, `intersection`, comparison | clock-based `init()` |
 | `DateComponents` | era, year, month, day, hour, minute, second, nanosecond, weekday, timeZone | week-based and quarter fields |
 | `Calendar` | Gregorian: components ↔ dates, `startOfDay`, `isDate(inSameDayAs:)`, `date(byAdding:)` with day clamping, `range(of:in:)` | non-Gregorian calendars, wrapping arithmetic, week-based math |
+| `Date.ISO8601FormatStyle` | full date-and-time formatting and parsing, configurable separators, fractional seconds, `Z`/numeric offsets | field-subset styles (`.year()`, `.month()`, week-of-year) |
+| `Date.HTTPFormatStyle` | RFC 9110 HTTP dates (`Sun, 06 Nov 1994 08:49:37 GMT`), formatting and parsing | obsolete RFC 850 and asctime forms |
+| `IndexPath` | storage-specialized value type, collection API, `appending`, `dropLast`, `compare`, comparison operators | Objective-C bridging |
 | `TimeZone` | fixed GMT offsets (`GMT±HH:MM` identifiers), `gmt`, `secondsFromGMT(for:)` | named zones, DST database |
 | `Locale` | identifiers; `current` is fixed to `en_US_POSIX` | localization data |
 | `Data` | bytes, collection API, `append`, `subdata`, capacity, Base64 encode/decode | file I/O, options-based Base64, slices sharing storage |
@@ -38,6 +41,11 @@ Cortex-M and RISC-V — while remaining buildable on every hosted platform
 
 All types are `Sendable` and `Hashable`. `Codable` conformances are
 intentionally not provided; consumers that need serialization define their own.
+
+Parsing APIs use typed throws (e.g. `throws(ISO8601ParseError)`) because
+Embedded Swift cannot represent the `any Error` existential that untyped
+`throws` requires. A `try` call site is unaffected and remains compatible with
+Foundation's untyped-throwing equivalents.
 
 ## Testing
 
