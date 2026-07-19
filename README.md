@@ -35,7 +35,8 @@ Cortex-M and RISC-V — while remaining buildable on every hosted platform
 | `UUID` | random (v4), string round-trip, comparison | — |
 | `ComparisonResult` | full | — |
 
-All types are `Sendable`, `Hashable`, and (outside Embedded mode) `Codable`.
+All types are `Sendable` and `Hashable`. `Codable` conformances are
+intentionally not provided; consumers that need serialization define their own.
 
 ## Testing
 
