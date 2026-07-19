@@ -78,6 +78,10 @@ echo "==> Toolchain: $TOOLCHAIN"
 
 SOURCES=(Sources/FoundationEmbedded/*.swift)
 
+# This script drives swiftc directly, so SwiftPM's traits are not applied
+# automatically — the package's default-enabled traits are passed by hand.
+TRAITS=(-D FloatingPointParsingShims)
+
 # --- 1. Bare-metal cross-compile gates -------------------------------------
 
 for target in "${BARE_METAL_TARGETS[@]}"; do
@@ -86,6 +90,10 @@ for target in "${BARE_METAL_TARGETS[@]}"; do
         continue
     fi
     echo "==> Compiling for $target"
+    "$SWIFTC" -target "$target" -enable-experimental-feature Embedded -wmo \
+        -parse-as-library "${TRAITS[@]}" -c "${SOURCES[@]}" -o /dev/null
+
+    # The library must also build with every optional trait disabled.
     "$SWIFTC" -target "$target" -enable-experimental-feature Embedded -wmo \
         -parse-as-library -c "${SOURCES[@]}" -o /dev/null
 done
@@ -105,7 +113,7 @@ BIN="$(mktemp -t embedded-smoke-test)"
 
 echo "==> Building + running smoke test for $HOST_TARGET"
 "$SWIFTC" -target "$HOST_TARGET" -sdk "$SDK" \
-    -enable-experimental-feature Embedded -wmo \
+    -enable-experimental-feature Embedded -wmo "${TRAITS[@]}" \
     "${SOURCES[@]}" EmbeddedTests/main.swift \
     -L "$HOST_LIB" -lswiftUnicodeDataTables \
     -o "$BIN"
