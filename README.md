@@ -34,6 +34,7 @@ Cortex-M and RISC-V — while remaining buildable on every hosted platform
 | `URL` | generic URI parsing: `scheme`, `host`, `port`, `path`, `query`, `fragment`, `lastPathComponent` | resolution against a base, file URLs, normalization |
 | `UUID` | random (v4), string round-trip, comparison | — |
 | `ComparisonResult` | full | — |
+| `Double(String)` | enabled under Embedded Swift (decimal, hex, inf/nan) by exporting the stdlib's `strtod` stub | correct rounding only up to a few ulp at extreme decimal exponents |
 
 All types are `Sendable` and `Hashable`. `Codable` conformances are
 intentionally not provided; consumers that need serialization define their own.
