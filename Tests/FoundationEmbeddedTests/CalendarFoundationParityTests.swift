@@ -59,6 +59,64 @@ import Foundation
         }
     }
 
+    @Test func startOfDayMatchesFoundation() {
+        let ourCalendar = FoundationEmbedded.Calendar.current
+        let intervals: [Double] = [0, -1, 748889145, 86400.5, -978307200]
+        for interval in intervals {
+            let ours = ourCalendar.startOfDay(for: .init(timeIntervalSinceReferenceDate: interval))
+            let theirs = foundationCalendar.startOfDay(for: .init(timeIntervalSinceReferenceDate: interval))
+            #expect(ours.timeIntervalSinceReferenceDate == theirs.timeIntervalSinceReferenceDate,
+                "startOfDay mismatch @\(interval)")
+        }
+    }
+
+    @Test func dateByAddingMatchesFoundation() {
+        let ourCalendar = FoundationEmbedded.Calendar.current
+        // (year, month, day) to add, applied to a set of base dates.
+        let additions: [(year: Int, month: Int, day: Int)] = [
+            (0, 1, 0), (1, 0, 0), (0, 0, 40), (0, -2, 0), (-1, -1, -1), (0, 13, 0), (2, 1, 5),
+        ]
+        let baseComponents: [(year: Int, month: Int, day: Int)] = [
+            (2024, 1, 31), (2024, 2, 29), (2023, 12, 31), (2000, 2, 29), (1999, 1, 15),
+        ]
+        for base in baseComponents {
+            var theirBase = Foundation.DateComponents()
+            theirBase.year = base.year; theirBase.month = base.month; theirBase.day = base.day
+            let ourBase = ourCalendar.date(from: FoundationEmbedded.DateComponents(
+                year: base.year, month: base.month, day: base.day))!
+            let theirBaseDate = foundationCalendar.date(from: theirBase)!
+
+            for addition in additions {
+                let ourResult = ourCalendar.date(byAdding: FoundationEmbedded.DateComponents(
+                    year: addition.year, month: addition.month, day: addition.day), to: ourBase)
+                var theirAddition = Foundation.DateComponents()
+                theirAddition.year = addition.year; theirAddition.month = addition.month; theirAddition.day = addition.day
+                let theirResult = foundationCalendar.date(byAdding: theirAddition, to: theirBaseDate)
+                #expect(ourResult?.timeIntervalSinceReferenceDate == theirResult?.timeIntervalSinceReferenceDate,
+                    "byAdding \(addition) to \(base) mismatch")
+            }
+        }
+    }
+
+    @Test func rangeOfComponentMatchesFoundation() {
+        let ourCalendar = FoundationEmbedded.Calendar.current
+        let baseComponents: [(year: Int, month: Int)] = [(2024, 2), (2023, 2), (2024, 6), (2000, 2), (1900, 2)]
+        for base in baseComponents {
+            let ourDate = ourCalendar.date(from: FoundationEmbedded.DateComponents(
+                year: base.year, month: base.month, day: 10))!
+            var theirComponents = Foundation.DateComponents()
+            theirComponents.year = base.year; theirComponents.month = base.month; theirComponents.day = 10
+            let theirDate = foundationCalendar.date(from: theirComponents)!
+
+            #expect(ourCalendar.range(of: .day, in: .month, for: ourDate)
+                == foundationCalendar.range(of: .day, in: .month, for: theirDate), "day-in-month mismatch for \(base)")
+            #expect(ourCalendar.range(of: .day, in: .year, for: ourDate)
+                == foundationCalendar.range(of: .day, in: .year, for: theirDate), "day-in-year mismatch for \(base)")
+            #expect(ourCalendar.range(of: .month, in: .year, for: ourDate)
+                == foundationCalendar.range(of: .month, in: .year, for: theirDate), "month-in-year mismatch for \(base)")
+        }
+    }
+
     @Test func componentTimeZoneOffsetMatchesFoundation() {
         let ourCalendar = FoundationEmbedded.Calendar.current
         for offset in [3600, -28800, 19800] {
