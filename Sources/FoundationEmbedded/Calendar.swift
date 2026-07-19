@@ -45,7 +45,7 @@ public struct Calendar: Sendable, Hashable {
 extension Calendar {
 
     /// Seconds between the Unix epoch (Jan 1, 1970) and the reference date (Jan 1, 2001).
-    static let referenceDateToUnixEpoch = 978307200.0
+    static var referenceDateToUnixEpoch: Double { 978307200.0 }
 
     /// Days from the Unix epoch (1970-01-01) to the given proleptic Gregorian date.
     ///
