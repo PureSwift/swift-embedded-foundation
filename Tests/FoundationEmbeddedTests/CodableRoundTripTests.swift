@@ -75,6 +75,30 @@ import Foundation
         #expect(try roundTrip(value) == value)
     }
 
+    @Test func dateInterval() throws {
+        let value = FoundationEmbedded.DateInterval(
+            start: .init(timeIntervalSinceReferenceDate: 100), duration: 50)
+        #expect(try roundTrip(value) == value)
+    }
+
+    @Test func dateIntervalRejectsNegativeDuration() {
+        let json = Foundation.Data(#"[{"start":0,"duration":-1}]"#.utf8)
+        #expect(throws: (any Error).self) {
+            _ = try JSONDecoder().decode([FoundationEmbedded.DateInterval].self, from: json)
+        }
+    }
+
+    @Test func comparisonResult() throws {
+        #expect(try roundTrip(FoundationEmbedded.ComparisonResult.orderedDescending) == .orderedDescending)
+    }
+
+    @Test func comparisonResultRejectsInvalid() {
+        let json = Foundation.Data("[7]".utf8)
+        #expect(throws: (any Error).self) {
+            _ = try JSONDecoder().decode([FoundationEmbedded.ComparisonResult].self, from: json)
+        }
+    }
+
     @Test func calendar() throws {
         let value = FoundationEmbedded.Calendar.current
         let back = try roundTrip(value)
