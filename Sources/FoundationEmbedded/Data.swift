@@ -99,29 +99,3 @@ extension Data: CustomStringConvertible, CustomDebugStringConvertible {
         description
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension Data: Codable {
-
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        var bytes: [UInt8] = []
-        if let count = container.count {
-            bytes.reserveCapacity(count)
-        }
-        while !container.isAtEnd {
-            bytes.append(try container.decode(UInt8.self))
-        }
-        self.init(bytes)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        for byte in bytes {
-            try container.encode(byte)
-        }
-    }
-}
-#endif

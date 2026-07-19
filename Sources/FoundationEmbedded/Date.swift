@@ -166,20 +166,3 @@ extension Date: CustomStringConvertible, CustomDebugStringConvertible {
         return string
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension Date: Codable {
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        self.init(timeIntervalSinceReferenceDate: try container.decode(TimeInterval.self))
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(timeIntervalSinceReferenceDate)
-    }
-}
-#endif

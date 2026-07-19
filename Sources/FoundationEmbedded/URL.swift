@@ -200,27 +200,3 @@ extension URL: CustomStringConvertible, CustomDebugStringConvertible {
         description
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension URL: Codable {
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let string = try container.decode(String.self)
-        guard let url = URL(string: string) else {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Attempted to decode URL from invalid string."))
-        }
-        self = url
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(absoluteString)
-    }
-}
-#endif

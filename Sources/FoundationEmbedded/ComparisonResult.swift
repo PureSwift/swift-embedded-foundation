@@ -19,27 +19,3 @@ public enum ComparisonResult: Int, Sendable {
 // MARK: - Equatable, Hashable
 
 extension ComparisonResult: Equatable, Hashable {}
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension ComparisonResult: Codable {
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let rawValue = try container.decode(Int.self)
-        guard let value = ComparisonResult(rawValue: rawValue) else {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Attempted to decode ComparisonResult from invalid value."))
-        }
-        self = value
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-#endif

@@ -289,28 +289,3 @@ extension Calendar {
         }
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension Calendar: Codable {
-
-    private enum CodingKeys: String, CodingKey {
-        case timeZone
-        case locale
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(identifier: .gregorian)
-        self.timeZone = try container.decode(TimeZone.self, forKey: .timeZone)
-        self.locale = try container.decodeIfPresent(Locale.self, forKey: .locale)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(timeZone, forKey: .timeZone)
-        try container.encodeIfPresent(locale, forKey: .locale)
-    }
-}
-#endif

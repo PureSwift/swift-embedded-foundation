@@ -124,34 +124,3 @@ extension DateInterval: CustomStringConvertible, CustomDebugStringConvertible {
         description
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension DateInterval: Codable {
-
-    private enum CodingKeys: String, CodingKey {
-        case start
-        case duration
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let start = try container.decode(Date.self, forKey: .start)
-        let duration = try container.decode(TimeInterval.self, forKey: .duration)
-        guard duration >= 0 else {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Attempted to decode DateInterval with negative duration."))
-        }
-        self.init(start: start, duration: duration)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(start, forKey: .start)
-        try container.encode(duration, forKey: .duration)
-    }
-}
-#endif
