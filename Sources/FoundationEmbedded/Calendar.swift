@@ -82,6 +82,27 @@ extension Calendar {
         (((days % 7) + 7) % 7 + 4) % 7 + 1
     }
 
+    /// Whether the given proleptic Gregorian year is a leap year.
+    static func isLeapYear(_ year: Int) -> Bool {
+        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    }
+
+    /// Number of days in the given month of the given proleptic Gregorian year.
+    static func daysInMonth(year: Int, month: Int) -> Int {
+        switch month {
+        case 1, 3, 5, 7, 8, 10, 12: return 31
+        case 4, 6, 9, 11: return 30
+        case 2: return isLeapYear(year) ? 29 : 28
+        default: return 0
+        }
+    }
+
+    /// Floor division (rounds toward negative infinity).
+    static func floorDivide(_ value: Int, _ divisor: Int) -> Int {
+        let quotient = value / divisor
+        return (value % divisor != 0 && (value ^ divisor) < 0) ? quotient - 1 : quotient
+    }
+
     /// Convert `DateComponents` to a time interval since the reference date.
     ///
     /// Returns `nil` if year, month, or day are missing. Uses the components'
@@ -161,6 +182,110 @@ extension Calendar {
         case .second: return all.second ?? 0
         case .nanosecond: return all.nanosecond ?? 0
         case .weekday: return all.weekday ?? 0
+        }
+    }
+}
+
+// MARK: - Calendrical Calculations
+
+extension Calendar {
+
+    /// The first moment of the given date's day, in the calendar's time zone.
+    public func startOfDay(for date: Date) -> Date {
+        let offset = Double(timeZone.secondsFromGMT)
+        let secondsSince1970 = date.timeIntervalSinceReferenceDate + Calendar.referenceDateToUnixEpoch + offset
+        let days = (secondsSince1970 / 86400).rounded(.down)
+        return Date(timeIntervalSinceReferenceDate: days * 86400 - offset - Calendar.referenceDateToUnixEpoch)
+    }
+
+    /// Whether two dates fall on the same day in the calendar's time zone.
+    public func isDate(_ date1: Date, inSameDayAs date2: Date) -> Bool {
+        startOfDay(for: date1) == startOfDay(for: date2)
+    }
+
+    /// Returns a date created by adding components to a given date.
+    ///
+    /// Year and month arithmetic clamps the day of month to the length of the
+    /// target month (e.g. Jan 31 plus one month is Feb 28 or 29).
+    ///
+    /// - Note: Only non-wrapping arithmetic is implemented.
+    public func date(byAdding components: DateComponents, to date: Date, wrappingComponents: Bool = false) -> Date? {
+        precondition(wrappingComponents == false, "FoundationEmbedded.Calendar does not implement wrapping arithmetic")
+
+        var interval = date.timeIntervalSinceReferenceDate
+
+        // Year and month arithmetic operates on the civil date, applied
+        // sequentially (year first, then month), clamping the day of month
+        // after each step — e.g. Feb 29 minus one year is Feb 28, and a
+        // subsequent month subtraction starts from the 28th.
+        if components.year != nil || components.month != nil {
+            let offset = Double(timeZone.secondsFromGMT)
+            let secondsSince1970 = interval + Calendar.referenceDateToUnixEpoch + offset
+            let days = Int((secondsSince1970 / 86400).rounded(.down))
+            let secondsOfDay = secondsSince1970 - Double(days) * 86400
+            var civil = Calendar.civilFromDays(days)
+
+            if let years = components.year, years != 0 {
+                let year = civil.year + years
+                civil = (year, civil.month, Swift.min(civil.day, Calendar.daysInMonth(year: year, month: civil.month)))
+            }
+            if let deltaMonths = components.month, deltaMonths != 0 {
+                let monthIndex = civil.year * 12 + (civil.month - 1) + deltaMonths
+                let year = Calendar.floorDivide(monthIndex, 12)
+                let month = monthIndex - year * 12 + 1
+                civil = (year, month, Swift.min(civil.day, Calendar.daysInMonth(year: year, month: month)))
+            }
+
+            let newDays = Calendar.daysFromCivil(year: civil.year, month: civil.month, day: civil.day)
+            interval = Double(newDays) * 86400 + secondsOfDay - offset - Calendar.referenceDateToUnixEpoch
+        }
+
+        // Day and time arithmetic is absolute (fixed-offset zone, no DST).
+        interval += Double((components.day ?? 0) * 86400
+            + (components.hour ?? 0) * 3600
+            + (components.minute ?? 0) * 60
+            + (components.second ?? 0))
+        interval += Double(components.nanosecond ?? 0) / 1_000_000_000
+
+        return Date(timeIntervalSinceReferenceDate: interval)
+    }
+
+    /// Returns a date created by adding a value of a single component to a given date.
+    public func date(byAdding component: Component, value: Int, to date: Date, wrappingComponents: Bool = false) -> Date? {
+        var components = DateComponents()
+        switch component {
+        case .era, .weekday:
+            return nil
+        case .year: components.year = value
+        case .month: components.month = value
+        case .day: components.day = value
+        case .hour: components.hour = value
+        case .minute: components.minute = value
+        case .second: components.second = value
+        case .nanosecond: components.nanosecond = value
+        }
+        return self.date(byAdding: components, to: date, wrappingComponents: wrappingComponents)
+    }
+
+    /// The range of absolute values a smaller component can take in a larger
+    /// component that includes the given date.
+    ///
+    /// Supports `.day` in `.month`, `.day` in `.year`, and `.month` in `.year`;
+    /// returns `nil` for other combinations.
+    public func range(of smaller: Component, in larger: Component, for date: Date) -> Range<Int>? {
+        let components = dateComponents(fromTimeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
+        guard let year = components.year, let month = components.month else {
+            return nil
+        }
+        switch (smaller, larger) {
+        case (.day, .month):
+            return 1..<(Calendar.daysInMonth(year: year, month: month) + 1)
+        case (.day, .year):
+            return 1..<(Calendar.isLeapYear(year) ? 367 : 366)
+        case (.month, .year):
+            return 1..<13
+        default:
+            return nil
         }
     }
 }
