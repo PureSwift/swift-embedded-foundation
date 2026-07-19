@@ -2,19 +2,21 @@
 //  DoubleParsing.swift
 //  FoundationEmbedded
 //
-//  Makes `Double.init?(_ text:)` work under Embedded Swift.
+//  Makes floating-point string parsing (`Double`/`Float`/`Float16` from a
+//  `String`) work under Embedded Swift.
 //
-//  The standard library parses floating-point strings by calling the C
-//  runtime stub `_swift_stdlib_strtod_clocale` (a C-locale `strtod` wrapper
-//  that stores the value and returns the POSIX "end pointer"), succeeding only
-//  when the returned pointer is non-null and points at the NUL terminator.
-//  Embedded Swift links no runtime stubs, so any use of `Double(String)`
-//  fails at link time with that symbol (and, on Apple targets, the
-//  availability helper `_stdlib_isOSVersionAtLeast`) undefined.
+//  The standard library parses floating-point strings by calling C runtime
+//  stubs — `_swift_stdlib_strtod_clocale` and its `strtof`/`strtof16`
+//  siblings (C-locale `strtod` wrappers that store the value and return the
+//  POSIX "end pointer"), succeeding only when the returned pointer is non-null
+//  and points at the NUL terminator. Embedded Swift links no runtime stubs, so
+//  any use of a float-from-string initializer fails at link time with those
+//  symbols (and, on Apple targets, the availability helper
+//  `_stdlib_isOSVersionAtLeast`) undefined.
 //
 //  This file provides a pure Swift C-locale `strtod` and, in Embedded builds
-//  only, exports both symbols so the standard library's own initializer links
-//  and works. The parser is compiled (and unit-tested) on every platform; the
+//  only, exports those symbols so the standard library's own initializers link
+//  and work. The parser is compiled (and unit-tested) on every platform; the
 //  exports never appear in hosted builds, where the real runtime provides them.
 //
 //  Accuracy: results are correctly rounded on the common paths — decimal
@@ -392,6 +394,40 @@ public func _foundationEmbedded_strtod_clocale(
     }
     let (value, consumed) = StrtodParser.parse(nptr)
     outResult?.pointee = value
+    return nptr + consumed
+}
+
+/// The C-locale `strtof` the standard library's `Float.init?(_:)` links
+/// against.
+///
+/// - Note: Parses at `Double` precision and narrows. This can double-round
+///   (differ from a direct `strtof`) only in the rare case where the true
+///   value lands near a `Float` rounding boundary that the intermediate
+///   `Double` rounds across — not reachable by ordinary decimal literals.
+@_cdecl("_swift_stdlib_strtof_clocale")
+public func _foundationEmbedded_strtof_clocale(
+    _ nptr: UnsafePointer<CChar>?, _ outResult: UnsafeMutablePointer<Float>?
+) -> UnsafePointer<CChar>? {
+    guard let nptr else {
+        return nil
+    }
+    let (value, consumed) = StrtodParser.parse(nptr)
+    outResult?.pointee = Float(value)
+    return nptr + consumed
+}
+
+/// The C-locale `strtof16` the standard library's `Float16.init?(_:)` links
+/// against. The out-parameter is a `__fp16 *`; the value is written as raw
+/// `Float16` bits. Narrows from `Double` (see `strtof` note on double-rounding).
+@_cdecl("_swift_stdlib_strtof16_clocale")
+public func _foundationEmbedded_strtof16_clocale(
+    _ nptr: UnsafePointer<CChar>?, _ outResult: UnsafeMutableRawPointer?
+) -> UnsafePointer<CChar>? {
+    guard let nptr else {
+        return nil
+    }
+    let (value, consumed) = StrtodParser.parse(nptr)
+    outResult?.storeBytes(of: Float16(value), as: Float16.self)
     return nptr + consumed
 }
 
