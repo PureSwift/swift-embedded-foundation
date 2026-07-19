@@ -19,6 +19,13 @@
 //  and work. The parser is compiled (and unit-tested) on every platform; the
 //  exports never appear in hosted builds, where the real runtime provides them.
 //
+//  The exports are additionally gated on the `FloatingPointParsingShims`
+//  package trait, which is enabled by default. They are required through
+//  Swift 6.3, where the stubs are unresolved in Embedded Swift. From Swift 6.4
+//  the standard library parses floating-point strings natively in Embedded
+//  Swift and no longer references these symbols, so the trait can be disabled
+//  — as it should be on any toolchain that provides the stubs itself.
+//
 //  Accuracy: results are correctly rounded on the common paths — decimal
 //  mantissas up to 19 significant digits with exponents reachable exactly
 //  (Clinger fast path plus a 128-bit exact-integer path), all hexadecimal
@@ -381,7 +388,7 @@ enum StrtodParser {
 
 // MARK: - Embedded Runtime Exports
 
-#if hasFeature(Embedded)
+#if hasFeature(Embedded) && FloatingPointParsingShims
 
 /// The C-locale `strtod` the standard library's `Double.init?(_:)` links
 /// against. Stores the parsed value and returns the end pointer.
