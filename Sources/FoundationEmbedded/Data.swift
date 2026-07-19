@@ -21,6 +21,12 @@ public struct Data: Sendable {
     public init(repeating byte: UInt8, count: Int) {
         self.bytes = Array(repeating: byte, count: count)
     }
+
+    /// Creates an empty data buffer of a specified capacity.
+    public init(capacity: Int) {
+        self.bytes = []
+        self.bytes.reserveCapacity(capacity)
+    }
 }
 
 // MARK: - Collection
@@ -50,6 +56,21 @@ extension Data {
 
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == UInt8 {
         bytes.append(contentsOf: newElements)
+    }
+
+    /// Appends the contents of another data buffer.
+    public mutating func append(_ other: Data) {
+        bytes.append(contentsOf: other.bytes)
+    }
+
+    /// Returns a new copy of the data in the specified range.
+    public func subdata(in range: Range<Int>) -> Data {
+        Data(bytes[range])
+    }
+
+    /// Reserves capacity for at least the given number of bytes.
+    public mutating func reserveCapacity(_ minimumCapacity: Int) {
+        bytes.reserveCapacity(minimumCapacity)
     }
 }
 
