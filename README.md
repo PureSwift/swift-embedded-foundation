@@ -55,6 +55,35 @@ Foundation's untyped-throwing equivalents.
   and runs a smoke test compiled in Embedded Swift mode.
 - `Scripts/coverage.sh` enforces line-coverage thresholds.
 
+## Traits
+
+### `FloatingPointParsingShims` (enabled by default)
+
+Exports the standard library's floating-point parsing runtime stubs
+(`_swift_stdlib_strtod_clocale` and its `strtof`/`strtof16` siblings, plus the
+availability helper `_stdlib_isOSVersionAtLeast`) so that `Double`, `Float` and
+`Float16` can be created from a `String` under Embedded Swift.
+
+Through **Swift 6.3** these symbols are unresolved in Embedded Swift, so any
+use of a float-from-string initializer fails at link time — the trait is
+required. This applies to the non-inlinable `Double(Substring)` overload too.
+
+From **Swift 6.4** the standard library parses floating-point strings natively
+in Embedded Swift ([swiftlang/swift#85797](https://github.com/swiftlang/swift/pull/85797))
+and no longer references these symbols, so the trait is unnecessary. Disable it
+on such toolchains, or if you supply the stubs yourself:
+
+```swift
+.package(
+    url: "https://github.com/PureSwift/swift-embedded-foundation.git",
+    from: "1.0.0",
+    traits: []
+)
+```
+
+Disabling the trait removes only the exported symbols; the parser itself
+remains compiled and tested on every platform.
+
 ## License
 
 MIT
