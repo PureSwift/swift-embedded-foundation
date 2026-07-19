@@ -107,6 +107,10 @@ check(Double("1e999") == .infinity, "Double overflow")
 check(Double("nan")?.isNaN == true, "Double nan")
 check(Double("1e") == nil, "Double reject")
 check(Double("") == nil, "Double empty")
+check(Float("1.5") == 1.5, "Float parse")
+check(Float("3.4028235e38") == Float.greatestFiniteMagnitude, "Float max")
+check(Float16("1.5") == 1.5, "Float16 parse")
+check(Float16("65504") == Float16.greatestFiniteMagnitude, "Float16 max")
 
 // MARK: Calendar
 
