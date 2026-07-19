@@ -153,7 +153,12 @@ import Foundation
         for string in strings {
             let ours = parseFloat(string)
             let theirs = Float(string)
-            #expect(ours?.bitPattern == theirs?.bitPattern, "Float parity mismatch for \(string)")
+            if theirs?.isNaN == true {
+                // NaN bit patterns are not standardized (ucrt yields all-ones).
+                #expect(ours?.isNaN == true, "Float NaN mismatch for \(string)")
+            } else {
+                #expect(ours?.bitPattern == theirs?.bitPattern, "Float parity mismatch for \(string)")
+            }
         }
     }
 
@@ -165,7 +170,12 @@ import Foundation
         for string in strings {
             let ours = parseFloat16(string)
             let theirs = Float16(string)
-            #expect(ours?.bitPattern == theirs?.bitPattern, "Float16 parity mismatch for \(string)")
+            if theirs?.isNaN == true {
+                // NaN bit patterns are not standardized (ucrt yields all-ones).
+                #expect(ours?.isNaN == true, "Float16 NaN mismatch for \(string)")
+            } else {
+                #expect(ours?.bitPattern == theirs?.bitPattern, "Float16 parity mismatch for \(string)")
+            }
         }
     }
 
