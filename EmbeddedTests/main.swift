@@ -66,6 +66,38 @@ check(TimeZone.gmt.secondsFromGMT == 0, "TimeZone gmt")
 check(TimeZone(secondsFromGMT: 3600)?.identifier == "GMT+0100", "TimeZone offset id")
 check(TimeZone(identifier: "GMT+05:30")?.secondsFromGMT == 19800, "TimeZone parse")
 
+// MARK: ComparisonResult / Date extras
+
+check(Date(timeIntervalSinceReferenceDate: 1).compare(Date(timeIntervalSinceReferenceDate: 2)) == .orderedAscending, "Date compare")
+check(Date.distantPast < Date.distantFuture, "distant dates")
+check(Date(timeInterval: 50, since: Date(timeIntervalSinceReferenceDate: 100)).timeIntervalSinceReferenceDate == 150, "Date since")
+check(Date(timeIntervalSinceReferenceDate: 0).description == "2001-01-01 00:00:00 +0000", "Date description")
+
+// MARK: DateInterval
+
+let interval = DateInterval(start: Date(timeIntervalSinceReferenceDate: 0), duration: 100)
+check(interval.contains(Date(timeIntervalSinceReferenceDate: 50)), "DateInterval contains")
+let other = DateInterval(start: Date(timeIntervalSinceReferenceDate: 50), duration: 100)
+check(interval.intersection(with: other)?.duration == 50, "DateInterval intersection")
+
+// MARK: Base64
+
+check(Data(Array("foobar".utf8)).base64EncodedString() == "Zm9vYmFy", "base64 encode")
+check(Data(base64Encoded: "Zm9vYmFy").map(Array.init) == Array("foobar".utf8), "base64 decode")
+check(Data(base64Encoded: "!!!") == nil, "base64 reject")
+check(Array(Data([1, 2, 3, 4, 5]).subdata(in: 1..<4)) == [2, 3, 4], "subdata")
+
+// MARK: URL components
+
+let parsedURL = URL(string: "https://user@example.com:8080/a/b.txt?k=v#frag")!
+check(parsedURL.scheme == "https", "URL scheme")
+check(parsedURL.host == "example.com", "URL host")
+check(parsedURL.port == 8080, "URL port")
+check(parsedURL.path == "/a/b.txt", "URL path")
+check(parsedURL.query == "k=v", "URL query")
+check(parsedURL.fragment == "frag", "URL fragment")
+check(parsedURL.lastPathComponent == "b.txt", "URL lastPathComponent")
+
 // MARK: Calendar
 
 let calendar = Calendar.current
@@ -75,3 +107,8 @@ check(calendar.date(from: DateComponents(year: 2001)) == nil, "Calendar missing 
 let components = calendar.dateComponents([.year, .month, .day], from: Date(timeIntervalSinceReferenceDate: -1))
 check(components.year == 2000 && components.month == 12 && components.day == 31, "Calendar decompose")
 check(calendar.component(.weekday, from: Date(timeIntervalSinceReferenceDate: 0)) == 2, "Calendar weekday")
+let jan31 = calendar.date(from: DateComponents(year: 2024, month: 1, day: 31))!
+let clamped = calendar.date(byAdding: .month, value: 1, to: jan31)!
+check(calendar.component(.day, from: clamped) == 29, "Calendar clamp to leap February")
+check(calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 3600)) == Date(timeIntervalSinceReferenceDate: 0), "Calendar startOfDay")
+check(calendar.range(of: .day, in: .month, for: jan31) == 1..<32, "Calendar range")

@@ -119,6 +119,80 @@ import Testing
         #expect(calendar.component(.second, from: oneHourOneMinuteOneSecond) == 1)
     }
 
+    // MARK: - Calendrical Calculations
+
+    @Test func startOfDay() {
+        let calendar = Calendar.current
+        let noon = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 12, minute: 30))!
+        let midnight = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15))!
+        #expect(calendar.startOfDay(for: noon) == midnight)
+        #expect(calendar.startOfDay(for: midnight) == midnight)
+    }
+
+    @Test func sameDay() {
+        let calendar = Calendar.current
+        let morning = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 1))!
+        let evening = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 23))!
+        let nextDay = calendar.date(from: DateComponents(year: 2024, month: 6, day: 16))!
+        #expect(calendar.isDate(morning, inSameDayAs: evening))
+        #expect(!calendar.isDate(evening, inSameDayAs: nextDay))
+    }
+
+    @Test func addingComponents() {
+        let calendar = Calendar.current
+        let base = calendar.date(from: DateComponents(year: 2024, month: 1, day: 15, hour: 10))!
+
+        let plusMonth = calendar.date(byAdding: DateComponents(month: 1), to: base)
+        #expect(calendar.dateComponents([.month], from: plusMonth!).month == 2)
+
+        let plusYearAndDay = calendar.date(byAdding: DateComponents(year: 1, day: 2), to: base)
+        let components = calendar.dateComponents([.year, .day], from: plusYearAndDay!)
+        #expect(components.year == 2025)
+        #expect(components.day == 17)
+    }
+
+    @Test func addingClampsDayOfMonth() {
+        let calendar = Calendar.current
+        let jan31 = calendar.date(from: DateComponents(year: 2024, month: 1, day: 31))!
+
+        let feb = calendar.date(byAdding: .month, value: 1, to: jan31)
+        let febComponents = calendar.dateComponents([.month, .day], from: feb!)
+        #expect(febComponents.month == 2)
+        #expect(febComponents.day == 29)   // 2024 is a leap year
+
+        let nonLeap = calendar.date(byAdding: DateComponents(year: 1, month: 1), to: jan31)
+        let nonLeapComponents = calendar.dateComponents([.year, .month, .day], from: nonLeap!)
+        #expect(nonLeapComponents.year == 2025)
+        #expect(nonLeapComponents.month == 2)
+        #expect(nonLeapComponents.day == 28)
+    }
+
+    @Test func addingNegativeAndTimeComponents() {
+        let calendar = Calendar.current
+        let base = calendar.date(from: DateComponents(year: 2024, month: 3, day: 31))!
+
+        let backTwoMonths = calendar.date(byAdding: .month, value: -2, to: base)
+        let backComponents = calendar.dateComponents([.year, .month, .day], from: backTwoMonths!)
+        #expect(backComponents.month == 1)
+        #expect(backComponents.day == 31)
+
+        let plusHour = calendar.date(byAdding: .hour, value: 25, to: base)
+        #expect(plusHour == base + 25 * 3600)
+        #expect(calendar.date(byAdding: .era, value: 1, to: base) == nil)
+    }
+
+    @Test func rangeOfComponents() {
+        let calendar = Calendar.current
+        let leapFebruary = calendar.date(from: DateComponents(year: 2024, month: 2, day: 10))!
+        let plainFebruary = calendar.date(from: DateComponents(year: 2023, month: 2, day: 10))!
+        #expect(calendar.range(of: .day, in: .month, for: leapFebruary) == 1..<30)
+        #expect(calendar.range(of: .day, in: .month, for: plainFebruary) == 1..<29)
+        #expect(calendar.range(of: .day, in: .year, for: leapFebruary) == 1..<367)
+        #expect(calendar.range(of: .day, in: .year, for: plainFebruary) == 1..<366)
+        #expect(calendar.range(of: .month, in: .year, for: leapFebruary) == 1..<13)
+        #expect(calendar.range(of: .hour, in: .day, for: leapFebruary) == nil)
+    }
+
     @Test func componentsRoundTrip() {
         let calendar = Calendar.current
         let original = DateComponents(year: 2024, month: 6, day: 15, hour: 14, minute: 25, second: 45)

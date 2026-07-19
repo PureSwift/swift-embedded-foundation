@@ -21,6 +21,12 @@ public struct Data: Sendable {
     public init(repeating byte: UInt8, count: Int) {
         self.bytes = Array(repeating: byte, count: count)
     }
+
+    /// Creates an empty data buffer of a specified capacity.
+    public init(capacity: Int) {
+        self.bytes = []
+        self.bytes.reserveCapacity(capacity)
+    }
 }
 
 // MARK: - Collection
@@ -51,6 +57,21 @@ extension Data {
     public mutating func append<S: Sequence>(contentsOf newElements: S) where S.Element == UInt8 {
         bytes.append(contentsOf: newElements)
     }
+
+    /// Appends the contents of another data buffer.
+    public mutating func append(_ other: Data) {
+        bytes.append(contentsOf: other.bytes)
+    }
+
+    /// Returns a new copy of the data in the specified range.
+    public func subdata(in range: Range<Int>) -> Data {
+        Data(bytes[range])
+    }
+
+    /// Reserves capacity for at least the given number of bytes.
+    public mutating func reserveCapacity(_ minimumCapacity: Int) {
+        bytes.reserveCapacity(minimumCapacity)
+    }
 }
 
 // MARK: - Equatable, Hashable
@@ -78,29 +99,3 @@ extension Data: CustomStringConvertible, CustomDebugStringConvertible {
         description
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension Data: Codable {
-
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        var bytes: [UInt8] = []
-        if let count = container.count {
-            bytes.reserveCapacity(count)
-        }
-        while !container.isAtEnd {
-            bytes.append(try container.decode(UInt8.self))
-        }
-        self.init(bytes)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        for byte in bytes {
-            try container.encode(byte)
-        }
-    }
-}
-#endif

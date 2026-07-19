@@ -25,7 +25,24 @@ import Testing
         var data = Data()
         data.append(1)
         data.append(contentsOf: [2, 3])
-        #expect(Array(data) == [1, 2, 3])
+        data.append(Data([4, 5]))
+        #expect(Array(data) == [1, 2, 3, 4, 5])
+    }
+
+    @Test func capacity() {
+        var data = Data(capacity: 16)
+        #expect(data.isEmpty)
+        data.reserveCapacity(32)
+        data.append(1)
+        #expect(Array(data) == [1])
+    }
+
+    @Test func subdata() {
+        let data = Data([1, 2, 3, 4, 5])
+        #expect(Array(data.subdata(in: 1..<4)) == [2, 3, 4])
+        #expect(data.subdata(in: 0..<0).isEmpty)
+        // Indices of the copy are rebased to zero.
+        #expect(data.subdata(in: 3..<5)[0] == 4)
     }
 
     @Test func equatableAndHashable() {

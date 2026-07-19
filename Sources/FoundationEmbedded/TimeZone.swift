@@ -149,28 +149,3 @@ extension TimeZone: CustomStringConvertible, CustomDebugStringConvertible {
         "\(identifier) (\(secondsFromGMT)s from GMT)"
     }
 }
-
-// MARK: - Codable
-
-#if !hasFeature(Embedded)
-extension TimeZone: Codable {
-
-    private enum CodingKeys: String, CodingKey {
-        case identifier
-        case secondsFromGMT
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(
-            identifier: try container.decode(String.self, forKey: .identifier),
-            secondsFromGMT: try container.decode(Int.self, forKey: .secondsFromGMT))
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(identifier, forKey: .identifier)
-        try container.encode(secondsFromGMT, forKey: .secondsFromGMT)
-    }
-}
-#endif
