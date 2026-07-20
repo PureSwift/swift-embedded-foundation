@@ -50,7 +50,7 @@ extension Date {
 
     @inlinable
     public init(timeIntervalSince1970: TimeInterval) {
-        self.init(timeIntervalSinceReferenceDate: timeIntervalSince1970 - Date.timeIntervalBetween1970AndReferenceDate)
+        self.init(timeIntervalSinceReferenceDate: timeIntervalSince1970 - 978307200.0)
     }
 
     /// Returns a `Date` initialized relative to another given date by a given number of seconds.
@@ -61,7 +61,7 @@ extension Date {
 
     @inlinable
     public var timeIntervalSince1970: TimeInterval {
-        timeIntervalSinceReferenceDate + Date.timeIntervalBetween1970AndReferenceDate
+        timeIntervalSinceReferenceDate + 978307200.0
     }
 
     @inlinable
@@ -174,22 +174,26 @@ extension Date: CustomStringConvertible, CustomDebugStringConvertible {
             days -= 1
         }
         let civil = Calendar.civilFromDays(days)
-        return Self.pad(civil.year, 4) + "-" + Self.pad(civil.month, 2) + "-" + Self.pad(civil.day, 2)
-            + " " + Self.pad(secondsOfDay / 3600, 2)
-            + ":" + Self.pad((secondsOfDay % 3600) / 60, 2)
-            + ":" + Self.pad(secondsOfDay % 60, 2)
-            + " +0000"
+
+        // "YYYY-MM-DD HH:MM:SS +0000" is 25 bytes for every in-range date.
+        var utf8: [UInt8] = []
+        utf8.reserveCapacity(25)
+        ASCII.appendPadded(civil.year, width: 4, to: &utf8)
+        utf8.append(UInt8(ascii: "-"))
+        ASCII.appendPadded(civil.month, width: 2, to: &utf8)
+        utf8.append(UInt8(ascii: "-"))
+        ASCII.appendPadded(civil.day, width: 2, to: &utf8)
+        utf8.append(UInt8(ascii: " "))
+        ASCII.appendPadded(secondsOfDay / 3600, width: 2, to: &utf8)
+        utf8.append(UInt8(ascii: ":"))
+        ASCII.appendPadded((secondsOfDay % 3600) / 60, width: 2, to: &utf8)
+        utf8.append(UInt8(ascii: ":"))
+        ASCII.appendPadded(secondsOfDay % 60, width: 2, to: &utf8)
+        utf8.append(contentsOf: " +0000".utf8)
+        return String(decoding: utf8, as: UTF8.self)
     }
 
     public var debugDescription: String {
         description
-    }
-
-    private static func pad(_ value: Int, _ width: Int) -> String {
-        var string = "\(value)"
-        while string.utf8.count < width {
-            string = "0" + string
-        }
-        return string
     }
 }

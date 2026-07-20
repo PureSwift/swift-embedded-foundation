@@ -239,7 +239,23 @@ extension IndexPath: Equatable, Hashable, Comparable {
 
     @inlinable
     public static func == (lhs: IndexPath, rhs: IndexPath) -> Bool {
-        lhs.storage.allValues == rhs.storage.allValues
+        guard lhs.storage.count == rhs.storage.count else {
+            return false
+        }
+        switch (lhs.storage, rhs.storage) {
+        case (.empty, .empty):
+            return true
+        case (.single(let left), .single(let right)):
+            return left == right
+        case (.pair(let leftFirst, let leftSecond), .pair(let rightFirst, let rightSecond)):
+            return leftFirst == rightFirst && leftSecond == rightSecond
+        case (.array(let left), .array(let right)):
+            return left == right
+        default:
+            // Mixed representations of the same length cannot occur, because
+            // `Storage.make` always picks the most compact form for a count.
+            return false
+        }
     }
 
     /// Compares two index paths lexicographically, shorter paths ordering first

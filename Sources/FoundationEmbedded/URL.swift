@@ -100,9 +100,23 @@ extension URL {
     }
 
     /// Splits the stored string into generic URI components.
+    ///
+    /// - Note: Every component accessor parses on demand, so this runs once per
+    ///   property read. It scans the string's own UTF-8 storage in place rather
+    ///   than copying it into an array first, which is what that repetition
+    ///   used to cost.
     private func parsed() -> Parsed {
+        let utf8 = absoluteString.utf8
+        if let result = utf8.withContiguousStorageIfAvailable({ URL.parse($0[...]) }) {
+            return result
+        }
+        // Non-contiguous UTF-8 (a bridged string) needs one copy first.
+        return Array(utf8).withUnsafeBufferPointer { URL.parse($0[...]) }
+    }
+
+    private static func parse(_ input: Slice<UnsafeBufferPointer<UInt8>>) -> Parsed {
         var result = Parsed()
-        var rest = Array(absoluteString.utf8)[...]
+        var rest = input
 
         // Fragment: everything after the first "#".
         if let hash = rest.firstIndex(of: UInt8(ascii: "#")) {
@@ -189,14 +203,21 @@ extension URL {
 
     /// Decodes `%XX` escapes; malformed escapes are passed through unchanged.
     private static func percentDecode(_ string: String) -> String {
-        let input = Array(string.utf8)
+        let utf8 = string.utf8
+        // Nothing to decode is the common case, and it can keep the original
+        // storage instead of rebuilding the string byte by byte.
+        guard utf8.contains(UInt8(ascii: "%")) else {
+            return string
+        }
+        let input = Array(utf8)
         var output: [UInt8] = []
         output.reserveCapacity(input.count)
         var index = 0
         while index < input.count {
             if input[index] == UInt8(ascii: "%"), index + 2 < input.count,
-                let high = UInt8(hexadecimal: String(decoding: input[(index + 1)...(index + 2)], as: UTF8.self)) {
-                output.append(high)
+                let high = hexNibble(input[index + 1]),
+                let low = hexNibble(input[index + 2]) {
+                output.append(high << 4 | low)
                 index += 3
             } else {
                 output.append(input[index])
@@ -204,6 +225,16 @@ extension URL {
             }
         }
         return String(decoding: output, as: UTF8.self)
+    }
+
+    /// Maps an ASCII hex digit to its value, or `nil` if it isn't one.
+    private static func hexNibble(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case UInt8(ascii: "0")...UInt8(ascii: "9"): return byte - UInt8(ascii: "0")
+        case UInt8(ascii: "A")...UInt8(ascii: "F"): return byte - UInt8(ascii: "A") + 10
+        case UInt8(ascii: "a")...UInt8(ascii: "f"): return byte - UInt8(ascii: "a") + 10
+        default: return nil
+        }
     }
 }
 

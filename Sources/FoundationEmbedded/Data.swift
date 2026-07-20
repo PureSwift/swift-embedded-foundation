@@ -27,6 +27,10 @@ public struct Data: Sendable {
 
     /// Adopts an already-built byte array without copying it.
     @usableFromInline
+    init(storage: [UInt8]) {
+        self.bytes = storage
+    }
+
     @inlinable
     public init(repeating byte: UInt8, count: Int) {
         self.bytes = Array(repeating: byte, count: count)
@@ -87,7 +91,8 @@ extension Data {
     /// Returns a new copy of the data in the specified range.
     @inlinable
     public func subdata(in range: Range<Int>) -> Data {
-        Data(bytes[range])
+        // Use Array slice to avoid the inefficient `Sequence` initializer.
+        Data(storage: Array(bytes[range]))
     }
 
     /// Reserves capacity for at least the given number of bytes.
