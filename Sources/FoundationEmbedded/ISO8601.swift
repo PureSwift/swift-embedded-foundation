@@ -104,11 +104,35 @@ extension Date.ISO8601FormatStyle {
 
 extension Date.ISO8601FormatStyle {
 
-    /// The literal text written between the date and the time.
-    private var dateTimeSeparatorText: String {
+    /// The byte written between the date and the time.
+    var dateTimeSeparatorByte: UInt8 {
         switch dateTimeSeparator {
-        case .space: return " "
-        case .standard: return "T"
+        case .space: return UInt8(ascii: " ")
+        case .standard: return UInt8(ascii: "T")
+        }
+    }
+
+    /// The byte between date components, or `nil` when omitted.
+    var dateSeparatorByte: UInt8? {
+        switch dateSeparator {
+        case .dash: return UInt8(ascii: "-")
+        case .omitted: return nil
+        }
+    }
+
+    /// The byte between time components, or `nil` when omitted.
+    var timeSeparatorByte: UInt8? {
+        switch timeSeparator {
+        case .colon: return UInt8(ascii: ":")
+        case .omitted: return nil
+        }
+    }
+
+    /// The byte within a numeric zone offset, or `nil` when omitted.
+    var timeZoneSeparatorByte: UInt8? {
+        switch timeZoneSeparator {
+        case .colon: return UInt8(ascii: ":")
+        case .omitted: return nil
         }
     }
 
@@ -133,35 +157,43 @@ extension Date.ISO8601FormatStyle {
         let components = calendar.dateComponents(
             fromTimeIntervalSinceReferenceDate: interval)
 
-        var result = ISO8601.pad(components.year ?? 0, 4)
-        result += dateSeparator.rawValue
-        result += ISO8601.pad(components.month ?? 1, 2)
-        result += dateSeparator.rawValue
-        result += ISO8601.pad(components.day ?? 1, 2)
-        result += dateTimeSeparatorText
-        result += ISO8601.pad(components.hour ?? 0, 2)
-        result += timeSeparator.rawValue
-        result += ISO8601.pad(components.minute ?? 0, 2)
-        result += timeSeparator.rawValue
-        result += ISO8601.pad(components.second ?? 0, 2)
+        // Longest form is "±YYYYYY-MM-DDTHH:MM:SS.mmm+HH:MM"; 40 covers it.
+        var utf8: [UInt8] = []
+        utf8.reserveCapacity(40)
+        let dateSeparatorByte = self.dateSeparatorByte
+        let timeSeparatorByte = self.timeSeparatorByte
+
+        ASCII.appendPadded(components.year ?? 0, width: 4, to: &utf8)
+        if let dateSeparatorByte { utf8.append(dateSeparatorByte) }
+        ASCII.appendPadded(components.month ?? 1, width: 2, to: &utf8)
+        if let dateSeparatorByte { utf8.append(dateSeparatorByte) }
+        ASCII.appendPadded(components.day ?? 1, width: 2, to: &utf8)
+        utf8.append(dateTimeSeparatorByte)
+        ASCII.appendPadded(components.hour ?? 0, width: 2, to: &utf8)
+        if let timeSeparatorByte { utf8.append(timeSeparatorByte) }
+        ASCII.appendPadded(components.minute ?? 0, width: 2, to: &utf8)
+        if let timeSeparatorByte { utf8.append(timeSeparatorByte) }
+        ASCII.appendPadded(components.second ?? 0, width: 2, to: &utf8)
         if includingFractionalSeconds {
-            result += "." + ISO8601.pad(milliseconds, 3)
+            utf8.append(UInt8(ascii: "."))
+            ASCII.appendPadded(milliseconds, width: 3, to: &utf8)
         }
-        result += formattedTimeZone()
-        return result
+        appendFormattedTimeZone(to: &utf8)
+        return String(decoding: utf8, as: UTF8.self)
     }
 
     /// `Z` for GMT, otherwise a numeric offset such as `+0100` or `+01:00`.
-    private func formattedTimeZone() -> String {
+    private func appendFormattedTimeZone(to utf8: inout [UInt8]) {
         let offset = timeZone.secondsFromGMT
-        if offset == 0 {
-            return "Z"
+        guard offset != 0 else {
+            utf8.append(UInt8(ascii: "Z"))
+            return
         }
-        let sign = offset < 0 ? "-" : "+"
+        utf8.append(offset < 0 ? UInt8(ascii: "-") : UInt8(ascii: "+"))
         let magnitude = offset < 0 ? -offset : offset
-        return sign + ISO8601.pad(magnitude / 3600, 2)
-            + timeZoneSeparator.rawValue
-            + ISO8601.pad((magnitude % 3600) / 60, 2)
+        ASCII.appendPadded(magnitude / 3600, width: 2, to: &utf8)
+        if let timeZoneSeparatorByte { utf8.append(timeZoneSeparatorByte) }
+        ASCII.appendPadded((magnitude % 3600) / 60, width: 2, to: &utf8)
     }
 }
 
@@ -178,9 +210,9 @@ extension Date.ISO8601FormatStyle {
 
     /// Parses an ISO 8601 date. The entire string must be consumed.
     ///
-    /// Separators must match this style's configuration. Fractional seconds
-    /// are accepted whether or not `includingFractionalSeconds` is set, and a
-    /// numeric offset may use either `+01:00` or `+0100` regardless of
+    /// Separators must match this style's configuration, and fractional
+    /// seconds must be present exactly when `includingFractionalSeconds` is
+    /// set. A numeric offset may use either `+01:00` or `+0100` regardless of
     /// `timeZoneSeparator`. A time-zone designator is required.
     ///
     /// - Throws: `ISO8601ParseError` if the string is not a well-formed
@@ -203,11 +235,11 @@ extension Date.ISO8601FormatStyle {
             index += 1
         }
 
-        func expect(_ text: String) throws(ISO8601ParseError) {
-            for character in text.utf8 {
+        /// Expects an optional separator; `nil` means the style omits it.
+        func expect(_ character: UInt8?) throws(ISO8601ParseError) {
+            guard let character else { return }
                 try expect(character)
             }
-        }
 
         func digits(_ count: Int) throws(ISO8601ParseError) -> Int {
             guard index + count <= bytes.count else {
@@ -226,23 +258,29 @@ extension Date.ISO8601FormatStyle {
         }
 
         let year = try digits(4)
-        try expect(dateSeparator.rawValue)
+        try expect(dateSeparatorByte)
         let month = try digits(2)
-        try expect(dateSeparator.rawValue)
+        try expect(dateSeparatorByte)
         let day = try digits(2)
-        try expect(dateTimeSeparatorText)
+        try expect(dateTimeSeparatorByte)
         let hour = try digits(2)
-        try expect(timeSeparator.rawValue)
+        try expect(timeSeparatorByte)
         let minute = try digits(2)
-        try expect(timeSeparator.rawValue)
+        try expect(timeSeparatorByte)
         let second = try digits(2)
 
-        // Optional fractional seconds, accepted regardless of configuration.
+        // Fractional seconds must be present exactly when the style includes
+        // them. The reference implementation is strict in both directions: a
+        // plain style rejects `…45.250Z`, and a fractional style rejects `…45Z`.
         var fraction = 0.0
         if index < bytes.count, bytes[index] == UInt8(ascii: ".") {
+            guard includingFractionalSeconds else {
+                throw fail()
+            }
             index += 1
             var scale = 0.1
             var sawDigit = false
+            // Any number of digits is accepted, matching the reference.
             while index < bytes.count,
                 bytes[index] >= UInt8(ascii: "0"), bytes[index] <= UInt8(ascii: "9") {
                 fraction += Double(bytes[index] - UInt8(ascii: "0")) * scale
@@ -253,6 +291,8 @@ extension Date.ISO8601FormatStyle {
             guard sawDigit else {
                 throw fail()
             }
+        } else if includingFractionalSeconds {
+            throw fail()
         }
 
         // Time-zone designator: Z, or a numeric offset with optional separator.
@@ -303,16 +343,3 @@ extension Date.ISO8601FormatStyle {
     }
 }
 
-// MARK: - Helpers
-
-enum ISO8601 {
-
-    /// Zero-pads a non-negative integer to at least `width` digits.
-    static func pad(_ value: Int, _ width: Int) -> String {
-        var string = "\(value)"
-        while string.utf8.count < width {
-            string = "0" + string
-        }
-        return string
-    }
-}

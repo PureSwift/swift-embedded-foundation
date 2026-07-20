@@ -50,12 +50,35 @@ import Testing
         #expect(URL(string: "https://example.com/dir/")!.lastPathComponent == "dir")
     }
 
-    @Test func schemeOnlyAndRelative() {
+    @Test func opaquePaths() {
         let mailto = URL(string: "mailto:someone@example.com")!
         #expect(mailto.scheme == "mailto")
         #expect(mailto.host == nil)
-        #expect(mailto.path == "someone@example.com")
+        #expect(mailto.path == "")
+        #expect(mailto.lastPathComponent == "")
 
+        let withQuery = URL(string: "mailto:a@b.com?subject=hi#note")!
+        #expect(withQuery.scheme == "mailto")
+        #expect(withQuery.path == "")
+        #expect(withQuery.query == nil)
+        #expect(withQuery.fragment == nil)
+
+        for string in ["urn:isbn:0451450523", "tel:+15551234567", "data:text/plain,hello"] {
+            #expect(URL(string: string)!.path == "", "expected opaque path for \(string)")
+        }
+    }
+
+    @Test func rootedPathWithoutAuthority() {
+        let url = URL(string: "scheme:/rooted/path?q=1#f")!
+        #expect(url.scheme == "scheme")
+        #expect(url.host == nil)
+        #expect(url.path == "/rooted/path")
+        #expect(url.query == "q=1")
+        #expect(url.fragment == "f")
+        #expect(url.lastPathComponent == "path")
+    }
+
+    @Test func relativeReference() {
         let relative = URL(string: "docs/readme.md")!
         #expect(relative.scheme == nil)
         #expect(relative.host == nil)

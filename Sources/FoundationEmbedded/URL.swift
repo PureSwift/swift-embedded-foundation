@@ -10,6 +10,10 @@
 //  strictly from the stored string — no normalization, resolution against a
 //  base, or file-system semantics.
 //
+//  URLs with an opaque path (a scheme, no authority, and a path not beginning
+//  with "/") expose no path, query or fragment, matching the reference
+//  implementation. See `parse(_:)`.
+//
 
 public struct URL: Sendable {
 
@@ -43,7 +47,11 @@ extension URL {
     }
 
     /// The path, percent-decoded, without any trailing slash (the root path
-    /// `"/"` is preserved). Empty if the URL has no path.
+    /// `"/"` is preserved).
+    ///
+    /// Empty if the URL has no path, or if its path is opaque — a scheme with
+    /// no authority whose path does not begin with `/`, such as
+    /// `mailto:someone@example.com`.
     public var path: String {
         var path = URL.percentDecode(parsed().path)
         if path.utf8.count > 1, path.hasSuffix("/") {
@@ -87,6 +95,8 @@ extension URL {
         var path: String = ""
         var query: String?
         var fragment: String?
+        /// Whether the string carried a `//` authority component.
+        var hasAuthority = false
     }
 
     /// Splits the stored string into generic URI components.
@@ -116,6 +126,7 @@ extension URL {
         if rest.count >= 2,
             rest[rest.startIndex] == UInt8(ascii: "/"),
             rest[rest.startIndex + 1] == UInt8(ascii: "/") {
+            result.hasAuthority = true
             rest = rest[(rest.startIndex + 2)...]
             var authority = rest
             if let slash = rest.firstIndex(of: UInt8(ascii: "/")) {
@@ -149,7 +160,19 @@ extension URL {
                 }
             }
         }
+        // RFC 3986 calls a path opaque when the URL has a scheme, carries no
+        // authority, and the path does not begin with "/" — `mailto:`, `urn:`,
+        // `tel:`, `data:` and friends. Such a URL has no hierarchical
+        // structure to expose, so the reference implementation reports no
+        // path, query or fragment for it at all. A rooted path without an
+        // authority (`scheme:/a/b`) is still hierarchical.
+        let pathIsRooted = rest.first == UInt8(ascii: "/")
+        if result.scheme != nil, result.hasAuthority == false, pathIsRooted == false {
+            result.query = nil
+            result.fragment = nil
+        } else {
         result.path = String(decoding: rest, as: UTF8.self)
+        }
         return result
     }
 
