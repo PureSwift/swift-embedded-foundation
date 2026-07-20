@@ -9,6 +9,7 @@
 //  A plain bag of optional calendar fields — no calendar arithmetic of its own.
 //
 
+@frozen
 public struct DateComponents: Sendable, Hashable {
 
     public var era: Int?
@@ -25,6 +26,7 @@ public struct DateComponents: Sendable, Hashable {
 
     public var timeZone: TimeZone?
 
+    @inlinable
     public init(
         era: Int? = nil,
         year: Int? = nil,

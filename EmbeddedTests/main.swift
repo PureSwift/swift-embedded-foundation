@@ -49,6 +49,8 @@ check(uuid.uuidString == "00010203-0405-0607-0809-0A0B0C0D0E0F", "UUID string")
 check(UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")?.uuidString
     == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "UUID round trip")
 check(UUID(uuidString: "not-a-uuid") == nil, "UUID invalid")
+check(UUID(uuidString: "e621e1f8-c36c-495a-93fc-0c247a3e6e5f")?.uuidString
+    == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "UUID lowercase parse")
 let random = UUID()
 check(random.uuid.6 & 0xF0 == 0x40 && random.uuid.8 & 0xC0 == 0x80, "UUID v4")
 

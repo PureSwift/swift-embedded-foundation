@@ -19,9 +19,11 @@ public struct TimeZone: Sendable, Hashable {
     ///
     /// - Note: Internal. `Foundation.TimeZone` exposes the offset only through
     ///   `secondsFromGMT(for:)`, so this stays out of the public surface.
+    @usableFromInline
     let secondsFromGMT: Int
 
     /// Create a fixed-offset time zone with an explicit identifier.
+    @usableFromInline
     init(identifier: String, secondsFromGMT: Int) {
         self.identifier = identifier
         self.secondsFromGMT = secondsFromGMT
@@ -58,6 +60,7 @@ extension TimeZone {
     }
 
     /// The GMT (UTC) time zone.
+    @inlinable
     public static var gmt: TimeZone {
         TimeZone(identifier: "GMT", secondsFromGMT: 0)
     }
@@ -66,6 +69,7 @@ extension TimeZone {
     ///
     /// - Note: Without a system clock configuration this returns GMT, not a
     ///   user-configured zone.
+    @inlinable
     public static var current: TimeZone {
         .gmt
     }
@@ -156,6 +160,7 @@ extension TimeZone {
     ///
     /// This shim is a fixed offset, so the date is ignored. Signature matches
     /// `Foundation.TimeZone.secondsFromGMT(for:)`.
+    @inlinable
     public func secondsFromGMT(for date: Date) -> Int {
         secondsFromGMT
     }

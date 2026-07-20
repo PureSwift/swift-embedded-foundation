@@ -171,7 +171,7 @@ extension URL {
             result.query = nil
             result.fragment = nil
         } else {
-        result.path = String(decoding: rest, as: UTF8.self)
+            result.path = String(decoding: rest, as: UTF8.self)
         }
         return result
     }

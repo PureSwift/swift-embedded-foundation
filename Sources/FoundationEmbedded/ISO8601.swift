@@ -238,8 +238,8 @@ extension Date.ISO8601FormatStyle {
         /// Expects an optional separator; `nil` means the style omits it.
         func expect(_ character: UInt8?) throws(ISO8601ParseError) {
             guard let character else { return }
-                try expect(character)
-            }
+            try expect(character)
+        }
 
         func digits(_ count: Int) throws(ISO8601ParseError) -> Int {
             guard index + count <= bytes.count else {
