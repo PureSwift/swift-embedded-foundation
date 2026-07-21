@@ -42,13 +42,15 @@ check(Decimal(string: "1.") == nil, "Decimal invalid")
 check(URL(string: "https://example.com")?.absoluteString == "https://example.com", "URL valid")
 check(URL(string: "") == nil, "URL empty")
 
-// MARK: UUID (exercises the vendored hexadecimal helper)
+// MARK: UUID
 
 let uuid = UUID(uuid: (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15))
 check(uuid.uuidString == "00010203-0405-0607-0809-0A0B0C0D0E0F", "UUID string")
 check(UUID(uuidString: "E621E1F8-C36C-495A-93FC-0C247A3E6E5F")?.uuidString
     == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "UUID round trip")
 check(UUID(uuidString: "not-a-uuid") == nil, "UUID invalid")
+check(UUID(uuidString: "e621e1f8-c36c-495a-93fc-0c247a3e6e5f")?.uuidString
+    == "E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "UUID lowercase parse")
 let random = UUID()
 check(random.uuid.6 & 0xF0 == 0x40 && random.uuid.8 & 0xC0 == 0x80, "UUID v4")
 
@@ -97,6 +99,11 @@ check(parsedURL.path == "/a/b.txt", "URL path")
 check(parsedURL.query == "k=v", "URL query")
 check(parsedURL.fragment == "frag", "URL fragment")
 check(parsedURL.lastPathComponent == "b.txt", "URL lastPathComponent")
+let opaqueURL = URL(string: "mailto:someone@example.com?subject=hi")!
+check(opaqueURL.scheme == "mailto", "URL opaque scheme")
+check(opaqueURL.path == "", "URL opaque path")
+check(opaqueURL.query == nil, "URL opaque query")
+check(URL(string: "scheme:/rooted/path")!.path == "/rooted/path", "URL rooted path")
 
 // MARK: Double parsing (via the exported _swift_stdlib_strtod_clocale)
 
@@ -131,6 +138,10 @@ check((try? isoStyle.parse("2024-06-15T14:25:45+01:00")) == isoReference - 3600,
 check((try? isoStyle.parse("2024-06-15T14:25:45")) == nil, "ISO 8601 reject")
 let fractionalStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 check(fractionalStyle.format(isoReference) == "2024-06-15T14:25:45.000Z", "ISO 8601 fractional")
+check((try? isoStyle.parse("2024-06-15T14:25:45.250Z")) == nil, "ISO 8601 plain rejects fraction")
+check((try? fractionalStyle.parse("2024-06-15T14:25:45Z")) == nil, "ISO 8601 fractional requires fraction")
+check((try? fractionalStyle.parse("2024-06-15T14:25:45.250Z")) == isoReference + 0.25,
+    "ISO 8601 fractional parse")
 
 // MARK: IndexPath
 

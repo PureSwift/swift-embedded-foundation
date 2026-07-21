@@ -12,6 +12,7 @@
 /// A closed date interval in the form of [start, end]. The start and end dates
 /// may be the same, with a duration of 0. Reverse intervals (negative
 /// durations) are not supported.
+@frozen
 public struct DateInterval: Sendable {
 
     /// The start date.
@@ -20,6 +21,7 @@ public struct DateInterval: Sendable {
     /// The end date.
     ///
     /// - Precondition: `end >= start`
+    @inlinable
     public var end: Date {
         get {
             start + duration
@@ -42,6 +44,7 @@ public struct DateInterval: Sendable {
     /// Initialize a `DateInterval` with the specified start and end date.
     ///
     /// - Precondition: `end >= start`
+    @inlinable
     public init(start: Date, end: Date) {
         precondition(end >= start, "Reverse intervals are not allowed")
         self.start = start
@@ -51,6 +54,7 @@ public struct DateInterval: Sendable {
     /// Initialize a `DateInterval` with the specified start date and duration.
     ///
     /// - Precondition: `duration >= 0`
+    @inlinable
     public init(start: Date, duration: TimeInterval) {
         precondition(duration >= 0, "Negative durations are not allowed")
         self.start = start
@@ -61,6 +65,7 @@ public struct DateInterval: Sendable {
 extension DateInterval {
 
     /// Compares two intervals, ordering by start date and then by duration.
+    @inlinable
     public func compare(_ dateInterval: DateInterval) -> ComparisonResult {
         let result = start.compare(dateInterval.start)
         if result == .orderedSame {
@@ -72,11 +77,13 @@ extension DateInterval {
     }
 
     /// Returns `true` if `self` contains `date`.
+    @inlinable
     public func contains(_ date: Date) -> Bool {
         date >= start && date <= end
     }
 
     /// Returns `true` if `self` intersects the `dateInterval`.
+    @inlinable
     public func intersects(_ dateInterval: DateInterval) -> Bool {
         contains(dateInterval.start) || contains(dateInterval.end)
             || dateInterval.contains(start) || dateInterval.contains(end)
@@ -98,14 +105,17 @@ extension DateInterval {
 
 extension DateInterval: Equatable, Comparable, Hashable {
 
+    @inlinable
     public static func == (lhs: DateInterval, rhs: DateInterval) -> Bool {
         lhs.start == rhs.start && lhs.duration == rhs.duration
     }
 
+    @inlinable
     public static func < (lhs: DateInterval, rhs: DateInterval) -> Bool {
         lhs.compare(rhs) == .orderedAscending
     }
 
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(start)
         hasher.combine(duration)

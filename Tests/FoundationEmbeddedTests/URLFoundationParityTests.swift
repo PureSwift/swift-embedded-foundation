@@ -16,9 +16,14 @@ import Foundation
         "http://example.com:80/path",
         "https://example.com/hello%20world/file%2Bname",
         "https://example.com/?q=a%20b",
-        "mailto:someone@example.com",
         "ftp://files.example.org/pub/readme",
         "https://example.com/a#frag",
+        "mailto:someone@example.com",
+        "mailto:a@b.com?subject=hi#note",
+        "urn:isbn:0451450523",
+        "tel:+15551234567",
+        "data:text/plain,hello",
+        "scheme:/rooted/path?q=1#f",
     ]
 
     @Test func componentsMatchFoundation() {

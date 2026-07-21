@@ -30,23 +30,32 @@ extension Date {
             let components = calendar.dateComponents(
                 [.weekday, .day, .month, .year, .hour, .minute, .second], from: date)
 
-            var result = ""
+            // "Sun, 06 Nov 1994 08:49:37 GMT" is 29 bytes.
+            var utf8: [UInt8] = []
+            utf8.reserveCapacity(29)
             if let weekday = components.weekday, let name = HTTPDate.weekdayName(weekday) {
-                result += name + ", "
+                utf8.append(name.0)
+                utf8.append(name.1)
+                utf8.append(name.2)
+                utf8.append(UInt8(ascii: ","))
+                utf8.append(UInt8(ascii: " "))
             }
-            result += HTTPDate.pad(components.day ?? 1, 2)
-            result += " "
-            result += HTTPDate.monthName(components.month ?? 1) ?? "Jan"
-            result += " "
-            result += HTTPDate.pad(components.year ?? 0, 4)
-            result += " "
-            result += HTTPDate.pad(components.hour ?? 0, 2)
-            result += ":"
-            result += HTTPDate.pad(components.minute ?? 0, 2)
-            result += ":"
-            result += HTTPDate.pad(components.second ?? 0, 2)
-            result += " GMT"
-            return result
+            ASCII.appendPadded(components.day ?? 1, width: 2, to: &utf8)
+            utf8.append(UInt8(ascii: " "))
+            let month = HTTPDate.monthName(components.month ?? 1) ?? HTTPDate.januaryName
+            utf8.append(month.0)
+            utf8.append(month.1)
+            utf8.append(month.2)
+            utf8.append(UInt8(ascii: " "))
+            ASCII.appendPadded(components.year ?? 0, width: 4, to: &utf8)
+            utf8.append(UInt8(ascii: " "))
+            ASCII.appendPadded(components.hour ?? 0, width: 2, to: &utf8)
+            utf8.append(UInt8(ascii: ":"))
+            ASCII.appendPadded(components.minute ?? 0, width: 2, to: &utf8)
+            utf8.append(UInt8(ascii: ":"))
+            ASCII.appendPadded(components.second ?? 0, width: 2, to: &utf8)
+            utf8.append(contentsOf: " GMT".utf8)
+            return String(decoding: utf8, as: UTF8.self)
         }
 
         /// Parses an HTTP date. The entire string must be consumed.
@@ -178,38 +187,46 @@ enum HTTPDate {
 
     // MARK: Names
 
-    static func weekdayName(_ weekday: Int) -> String? {
+    /// A fixed three-letter RFC 9110 name. Bytes rather than a `String` so
+    /// that formatting can append straight into its output buffer, and so the
+    /// same values round-trip through `weekdayNumber`/`monthNumber`.
+    typealias Name = (UInt8, UInt8, UInt8)
+
+    /// The month name used when a component set carries no month.
+    static let januaryName: Name = (UInt8(ascii: "J"), UInt8(ascii: "a"), UInt8(ascii: "n"))
+
+    static func weekdayName(_ weekday: Int) -> Name? {
         switch weekday {
-        case 1: return "Sun"
-        case 2: return "Mon"
-        case 3: return "Tue"
-        case 4: return "Wed"
-        case 5: return "Thu"
-        case 6: return "Fri"
-        case 7: return "Sat"
+        case 1: return (UInt8(ascii: "S"), UInt8(ascii: "u"), UInt8(ascii: "n"))
+        case 2: return (UInt8(ascii: "M"), UInt8(ascii: "o"), UInt8(ascii: "n"))
+        case 3: return (UInt8(ascii: "T"), UInt8(ascii: "u"), UInt8(ascii: "e"))
+        case 4: return (UInt8(ascii: "W"), UInt8(ascii: "e"), UInt8(ascii: "d"))
+        case 5: return (UInt8(ascii: "T"), UInt8(ascii: "h"), UInt8(ascii: "u"))
+        case 6: return (UInt8(ascii: "F"), UInt8(ascii: "r"), UInt8(ascii: "i"))
+        case 7: return (UInt8(ascii: "S"), UInt8(ascii: "a"), UInt8(ascii: "t"))
         default: return nil
         }
     }
 
-    static func monthName(_ month: Int) -> String? {
+    static func monthName(_ month: Int) -> Name? {
         switch month {
-        case 1: return "Jan"
-        case 2: return "Feb"
-        case 3: return "Mar"
-        case 4: return "Apr"
-        case 5: return "May"
-        case 6: return "Jun"
-        case 7: return "Jul"
-        case 8: return "Aug"
-        case 9: return "Sep"
-        case 10: return "Oct"
-        case 11: return "Nov"
-        case 12: return "Dec"
+        case 1: return januaryName
+        case 2: return (UInt8(ascii: "F"), UInt8(ascii: "e"), UInt8(ascii: "b"))
+        case 3: return (UInt8(ascii: "M"), UInt8(ascii: "a"), UInt8(ascii: "r"))
+        case 4: return (UInt8(ascii: "A"), UInt8(ascii: "p"), UInt8(ascii: "r"))
+        case 5: return (UInt8(ascii: "M"), UInt8(ascii: "a"), UInt8(ascii: "y"))
+        case 6: return (UInt8(ascii: "J"), UInt8(ascii: "u"), UInt8(ascii: "n"))
+        case 7: return (UInt8(ascii: "J"), UInt8(ascii: "u"), UInt8(ascii: "l"))
+        case 8: return (UInt8(ascii: "A"), UInt8(ascii: "u"), UInt8(ascii: "g"))
+        case 9: return (UInt8(ascii: "S"), UInt8(ascii: "e"), UInt8(ascii: "p"))
+        case 10: return (UInt8(ascii: "O"), UInt8(ascii: "c"), UInt8(ascii: "t"))
+        case 11: return (UInt8(ascii: "N"), UInt8(ascii: "o"), UInt8(ascii: "v"))
+        case 12: return (UInt8(ascii: "D"), UInt8(ascii: "e"), UInt8(ascii: "c"))
         default: return nil
         }
     }
 
-    static func weekdayNumber(_ name: (UInt8, UInt8, UInt8)) -> Int? {
+    static func weekdayNumber(_ name: Name) -> Int? {
         switch name {
         case (UInt8(ascii: "S"), UInt8(ascii: "u"), UInt8(ascii: "n")): return 1
         case (UInt8(ascii: "M"), UInt8(ascii: "o"), UInt8(ascii: "n")): return 2
@@ -222,7 +239,7 @@ enum HTTPDate {
         }
     }
 
-    static func monthNumber(_ name: (UInt8, UInt8, UInt8)) -> Int? {
+    static func monthNumber(_ name: Name) -> Int? {
         switch name {
         case (UInt8(ascii: "J"), UInt8(ascii: "a"), UInt8(ascii: "n")): return 1
         case (UInt8(ascii: "F"), UInt8(ascii: "e"), UInt8(ascii: "b")): return 2
@@ -238,14 +255,5 @@ enum HTTPDate {
         case (UInt8(ascii: "D"), UInt8(ascii: "e"), UInt8(ascii: "c")): return 12
         default: return nil
         }
-    }
-
-    /// Zero-pads a non-negative integer to at least `width` digits.
-    static func pad(_ value: Int, _ width: Int) -> String {
-        var string = "\(value)"
-        while string.utf8.count < width {
-            string = "0" + string
-        }
-        return string
     }
 }

@@ -14,6 +14,7 @@ public struct Locale: Sendable, Hashable {
     /// The locale identifier, e.g. `"en_US_POSIX"`.
     public let identifier: String
 
+    @inlinable
     public init(identifier: String) {
         self.identifier = identifier
     }
@@ -26,6 +27,7 @@ extension Locale {
     /// - Note: Unlike `Foundation.Locale.current`, this never reflects a
     ///   user-configured region. On a device without a locale database the
     ///   only meaningful, stable choice is the fixed POSIX locale.
+    @inlinable
     public static var current: Locale {
         Locale(identifier: "en_US_POSIX")
     }

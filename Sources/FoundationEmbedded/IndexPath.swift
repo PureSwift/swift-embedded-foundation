@@ -15,12 +15,17 @@ public struct IndexPath: Sendable {
 
     public typealias Element = Int
 
-    fileprivate enum Storage: Sendable {
+    /// - Note: `@usableFromInline` rather than `fileprivate` so the collection
+    ///   conformance below can be inlined into consumers. The representation is
+    ///   an implementation detail either way — it is not part of the public API.
+    @usableFromInline
+    enum Storage: Sendable {
         case empty
         case single(Int)
         case pair(Int, Int)
         case array([Int])
 
+        @usableFromInline
         var count: Int {
             switch self {
             case .empty: return 0
@@ -30,6 +35,7 @@ public struct IndexPath: Sendable {
             }
         }
 
+        @usableFromInline
         subscript(index: Int) -> Int {
             get {
                 switch self {
@@ -71,6 +77,7 @@ public struct IndexPath: Sendable {
         }
 
         /// The indexes as a flat array.
+        @usableFromInline
         var allValues: [Int] {
             switch self {
             case .empty: return []
@@ -81,6 +88,7 @@ public struct IndexPath: Sendable {
         }
 
         /// Builds the most compact representation for the given indexes.
+        @usableFromInline
         static func make(_ indexes: [Int]) -> Storage {
             switch indexes.count {
             case 0: return .empty
@@ -91,28 +99,34 @@ public struct IndexPath: Sendable {
         }
     }
 
-    fileprivate var storage: Storage
+    @usableFromInline
+    var storage: Storage
 
-    fileprivate init(storage: Storage) {
+    @usableFromInline
+    init(storage: Storage) {
         self.storage = storage
     }
 
     /// Creates an empty index path.
+    @inlinable
     public init() {
         self.storage = .empty
     }
 
     /// Creates an index path with a single index.
+    @inlinable
     public init(index: Element) {
         self.storage = .single(index)
     }
 
     /// Creates an index path with the given indexes.
+    @inlinable
     public init(indexes: [Element]) {
         self.storage = Storage.make(indexes)
     }
 
     /// Creates an index path with the given sequence of indexes.
+    @inlinable
     public init<ElementSequence: Sequence>(indexes: ElementSequence) where ElementSequence.Element == Element {
         self.storage = Storage.make(Array(indexes))
     }
@@ -122,6 +136,7 @@ public struct IndexPath: Sendable {
 
 extension IndexPath: ExpressibleByArrayLiteral {
 
+    @inlinable
     public init(arrayLiteral indexes: Element...) {
         self.storage = Storage.make(indexes)
     }
@@ -134,12 +149,16 @@ extension IndexPath: RandomAccessCollection, MutableCollection {
     public typealias Index = Int
     public typealias Indices = DefaultIndices<IndexPath>
 
+    @inlinable
     public var startIndex: Index { 0 }
 
+    @inlinable
     public var endIndex: Index { storage.count }
 
+    @inlinable
     public var count: Int { storage.count }
 
+    @inlinable
     public subscript(index: Index) -> Element {
         get { storage[index] }
         set { storage[index] = newValue }
@@ -154,8 +173,10 @@ extension IndexPath: RandomAccessCollection, MutableCollection {
         }
     }
 
+    @inlinable
     public func index(before i: Index) -> Index { i - 1 }
 
+    @inlinable
     public func index(after i: Index) -> Index { i + 1 }
 }
 
@@ -164,10 +185,20 @@ extension IndexPath: RandomAccessCollection, MutableCollection {
 extension IndexPath {
 
     /// Returns a new index path with the given index appended.
+    @inlinable
     public func appending(_ other: Element) -> IndexPath {
-        var values = storage.allValues
-        values.append(other)
-        return IndexPath(storage: Storage.make(values))
+        // Growing within the inline representations stays off the heap
+        switch storage {
+        case .empty:
+            return IndexPath(storage: .single(other))
+        case .single(let first):
+            return IndexPath(storage: .pair(first, other))
+        case .pair(let first, let second):
+            return IndexPath(storage: .array([first, second, other]))
+        case .array(var array):
+            array.append(other)
+            return IndexPath(storage: .array(array))
+        }
     }
 
     /// Returns a new index path with the given path appended.
@@ -206,12 +237,30 @@ extension IndexPath {
 
 extension IndexPath: Equatable, Hashable, Comparable {
 
+    @inlinable
     public static func == (lhs: IndexPath, rhs: IndexPath) -> Bool {
-        lhs.storage.allValues == rhs.storage.allValues
+        guard lhs.storage.count == rhs.storage.count else {
+            return false
+        }
+        switch (lhs.storage, rhs.storage) {
+        case (.empty, .empty):
+            return true
+        case (.single(let left), .single(let right)):
+            return left == right
+        case (.pair(let leftFirst, let leftSecond), .pair(let rightFirst, let rightSecond)):
+            return leftFirst == rightFirst && leftSecond == rightSecond
+        case (.array(let left), .array(let right)):
+            return left == right
+        default:
+            // Mixed representations of the same length cannot occur, because
+            // `Storage.make` always picks the most compact form for a count.
+            return false
+        }
     }
 
     /// Compares two index paths lexicographically, shorter paths ordering first
     /// when one is a prefix of the other.
+    @inlinable
     public func compare(_ other: IndexPath) -> ComparisonResult {
         let length = Swift.min(count, other.count)
         for index in 0..<length {
@@ -231,6 +280,7 @@ extension IndexPath: Equatable, Hashable, Comparable {
         return .orderedSame
     }
 
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         // Every index participates in ==, so every index must be hashed.
         for index in 0..<count {
@@ -238,18 +288,22 @@ extension IndexPath: Equatable, Hashable, Comparable {
         }
     }
 
+    @inlinable
     public static func < (lhs: IndexPath, rhs: IndexPath) -> Bool {
         lhs.compare(rhs) == .orderedAscending
     }
 
+    @inlinable
     public static func <= (lhs: IndexPath, rhs: IndexPath) -> Bool {
         lhs.compare(rhs) != .orderedDescending
     }
 
+    @inlinable
     public static func > (lhs: IndexPath, rhs: IndexPath) -> Bool {
         lhs.compare(rhs) == .orderedDescending
     }
 
+    @inlinable
     public static func >= (lhs: IndexPath, rhs: IndexPath) -> Bool {
         lhs.compare(rhs) != .orderedAscending
     }

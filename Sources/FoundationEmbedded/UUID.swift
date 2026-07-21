@@ -57,19 +57,99 @@ extension UUID {
 
 extension UUID {
 
+    /// The byte offsets of the four hyphens in a UUID string.
+    private static let separatorOffsets = (8, 13, 18, 23)
+
     /// Create a UUID from a string such as "E621E1F8-C36C-495A-93FC-0C247A3E6E5F".
     ///
     /// Returns nil for invalid strings.
     public init?(uuidString string: String) {
-        guard let value = UInt128.bigEndian(uuidString: string) else {
-            return nil
+        var bytes: ByteValue = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        let parsed = string.utf8.withContiguousStorageIfAvailable { input -> Bool in
+            UUID.parse(input, into: &bytes)
         }
-        self.init(uuid: value.bytes)
+        switch parsed {
+        case .some(true):
+            self.init(uuid: bytes)
+        case .some(false):
+            return nil
+        case .none:
+            // Non-contiguous UTF-8 (a bridged string) needs one copy first.
+            let input = Array(string.utf8)
+            guard input.withUnsafeBufferPointer({ UUID.parse($0, into: &bytes) }) else {
+                return nil
+            }
+            self.init(uuid: bytes)
+        }
+    }
+
+    /// Parses the canonical 8-4-4-4-12 hyphenated form into `bytes`.
+    ///
+    /// Returns `false` — leaving `bytes` in an unspecified state — for any
+    /// input that is not exactly 36 bytes with hyphens in the right places and
+    /// hex digits everywhere else.
+    private static func parse(_ input: UnsafeBufferPointer<UInt8>, into bytes: inout ByteValue) -> Bool {
+        guard input.count == 36,
+            input[separatorOffsets.0] == UInt8(ascii: "-"),
+            input[separatorOffsets.1] == UInt8(ascii: "-"),
+            input[separatorOffsets.2] == UInt8(ascii: "-"),
+            input[separatorOffsets.3] == UInt8(ascii: "-")
+        else {
+            return false
+        }
+        return withUnsafeMutableBytes(of: &bytes) { output in
+            var source = 0
+            for target in 0..<16 {
+                if source == separatorOffsets.0 || source == separatorOffsets.1
+                    || source == separatorOffsets.2 || source == separatorOffsets.3 {
+                    source += 1
+                }
+                guard let high = hexNibble(input[source]),
+                    let low = hexNibble(input[source + 1])
+                else {
+                    return false
+                }
+                output[target] = high << 4 | low
+                source += 2
+            }
+            return true
+        }
     }
 
     /// Returns a string created from the UUID, such as "E621E1F8-C36C-495A-93FC-0C247A3E6E5F"
     public var uuidString: String {
-        UInt128(bytes: uuid).bigEndianUUIDString
+        withUnsafeTemporaryAllocation(of: UInt8.self, capacity: 36) { output in
+            Swift.withUnsafeBytes(of: uuid) { input in
+                var target = 0
+                for source in 0..<16 {
+                    if target == UUID.separatorOffsets.0 || target == UUID.separatorOffsets.1
+                        || target == UUID.separatorOffsets.2 || target == UUID.separatorOffsets.3 {
+                        output[target] = UInt8(ascii: "-")
+                        target += 1
+                    }
+                    let byte = input[source]
+                    output[target] = UUID.hexDigit(byte >> 4)
+                    output[target + 1] = UUID.hexDigit(byte & 0x0F)
+                    target += 2
+                }
+            }
+            return String(decoding: output, as: UTF8.self)
+        }
+    }
+
+    /// Maps a nibble (0–15) to its uppercase ASCII hex digit.
+    private static func hexDigit(_ value: UInt8) -> UInt8 {
+        value < 10 ? (UInt8(ascii: "0") + value) : (UInt8(ascii: "A") + value - 10)
+    }
+
+    /// Maps an ASCII hex digit to its value, or `nil` if it isn't one.
+    private static func hexNibble(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case UInt8(ascii: "0")...UInt8(ascii: "9"): return byte - UInt8(ascii: "0")
+        case UInt8(ascii: "A")...UInt8(ascii: "F"): return byte - UInt8(ascii: "A") + 10
+        case UInt8(ascii: "a")...UInt8(ascii: "f"): return byte - UInt8(ascii: "a") + 10
+        default: return nil
+        }
     }
 }
 
@@ -133,80 +213,3 @@ extension UUID: Comparable {
     }
 }
 
-// MARK: - UUID String Parsing
-
-fileprivate extension UInt128 {
-
-    /// Parse a UUID string and return a value in big endian order.
-    static func bigEndian(uuidString string: String) -> UInt128? {
-        guard string.utf8.count == 36,
-            let separator = "-".utf8.first
-        else {
-            return nil
-        }
-        let characters = string.utf8
-        guard characters[characters.index(characters.startIndex, offsetBy: 8)] == separator,
-            characters[characters.index(characters.startIndex, offsetBy: 13)] == separator,
-            characters[characters.index(characters.startIndex, offsetBy: 18)] == separator,
-            characters[characters.index(characters.startIndex, offsetBy: 23)] == separator,
-            let a = String(characters[characters.startIndex..<characters.index(characters.startIndex, offsetBy: 8)]),
-            let b = String(characters[characters.index(characters.startIndex, offsetBy: 9)..<characters.index(characters.startIndex, offsetBy: 13)]),
-            let c = String(characters[characters.index(characters.startIndex, offsetBy: 14)..<characters.index(characters.startIndex, offsetBy: 18)]),
-            let d = String(characters[characters.index(characters.startIndex, offsetBy: 19)..<characters.index(characters.startIndex, offsetBy: 23)]),
-            let e = String(characters[characters.index(characters.startIndex, offsetBy: 24)..<characters.index(characters.startIndex, offsetBy: 36)])
-        else { return nil }
-        let hexadecimal = (a + b + c + d + e)
-        guard hexadecimal.utf8.count == 32,
-            let value = UInt128(hexadecimal: hexadecimal)
-        else {
-            return nil
-        }
-        return value.bigEndian
-    }
-
-    /// Generate UUID string, e.g. `0F4DD6A4-0F71-48EF-98A5-996301B868F9` from a value initialized in its big endian order.
-    var bigEndianUUIDString: String {
-
-        let a =
-            (bytes.0.toHexadecimal()
-                + bytes.1.toHexadecimal()
-                + bytes.2.toHexadecimal()
-                + bytes.3.toHexadecimal())
-
-        let b =
-            (bytes.4.toHexadecimal()
-                + bytes.5.toHexadecimal())
-
-        let c =
-            (bytes.6.toHexadecimal()
-                + bytes.7.toHexadecimal())
-
-        let d =
-            (bytes.8.toHexadecimal()
-                + bytes.9.toHexadecimal())
-
-        let e =
-            (bytes.10.toHexadecimal()
-                + bytes.11.toHexadecimal()
-                + bytes.12.toHexadecimal()
-                + bytes.13.toHexadecimal()
-                + bytes.14.toHexadecimal()
-                + bytes.15.toHexadecimal())
-
-        return a + "-" + b + "-" + c + "-" + d + "-" + e
-    }
-}
-
-fileprivate extension UInt128 {
-
-    /// Reinterpret a 16-byte tuple as a `UInt128`, preserving byte order exactly (no endian conversion).
-    init(bytes: UUID.ByteValue) {
-        self = Swift.withUnsafeBytes(of: bytes) { $0.loadUnaligned(as: UInt128.self) }
-    }
-
-    /// Reinterpret `self`'s raw memory as a 16-byte tuple, preserving byte order exactly (no endian conversion).
-    var bytes: UUID.ByteValue {
-        var value = self
-        return Swift.withUnsafeBytes(of: &value) { $0.loadUnaligned(as: UUID.ByteValue.self) }
-    }
-}

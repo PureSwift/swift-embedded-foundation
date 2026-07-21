@@ -64,11 +64,20 @@ import Testing
     }
 
     @Test func parsesFractionalSeconds() throws {
-        // Accepted whether or not the style includes fractional seconds.
-        let style = Date.ISO8601FormatStyle()
-        #expect(try style.parse("2024-06-15T14:25:45.250Z").timeIntervalSince1970 == 1718461545.25)
         let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        #expect(try fractional.parse("2024-06-15T14:25:45.250Z").timeIntervalSince1970 == 1718461545.25)
         #expect(try fractional.parse("2024-06-15T14:25:45.5Z").timeIntervalSince1970 == 1718461545.5)
+    }
+
+    @Test func fractionalSecondsMustMatchTheStyle() {
+        let plain = Date.ISO8601FormatStyle()
+        let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        #expect(throws: ISO8601ParseError.self) {
+            _ = try plain.parse("2024-06-15T14:25:45.250Z")
+        }
+        #expect(throws: ISO8601ParseError.self) {
+            _ = try fractional.parse("2024-06-15T14:25:45Z")
+        }
     }
 
     @Test func parsesNumericOffsets() throws {

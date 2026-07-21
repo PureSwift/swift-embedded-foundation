@@ -47,7 +47,6 @@ import Foundation
 
         let valid = [
             "2024-06-15T14:25:45Z",
-            "2024-06-15T14:25:45.250Z",
             "2024-06-15T14:25:45+01:00",
             "2024-06-15T14:25:45+0100",
             "2024-06-15T14:25:45-08:00",
@@ -60,6 +59,42 @@ import Foundation
             #expect(ours.timeIntervalSince1970 == theirs.timeIntervalSince1970,
                 "parse mismatch for \(string)")
         }
+    }
+
+    @Test func parseFractionalMatchesFoundation() throws {
+        let ourStyle = FoundationEmbedded.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        let theirStyle = Foundation.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+
+        let valid = [
+            "2024-06-15T14:25:45.250Z",
+            "2024-06-15T14:25:45.5Z",
+            "2024-06-15T14:25:45.123456Z",
+        ]
+        for string in valid {
+            let ours = try ourStyle.parse(string)
+            let theirs = try theirStyle.parse(string)
+            #expect(ours.timeIntervalSince1970 == theirs.timeIntervalSince1970,
+                "parse mismatch for \(string)")
+        }
+    }
+
+    @Test func fractionalSecondStrictnessMatchesFoundation() {
+        let ourPlain = FoundationEmbedded.Date.ISO8601FormatStyle()
+        let theirPlain = Foundation.Date.ISO8601FormatStyle()
+        let ourFractional = FoundationEmbedded.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+        let theirFractional = Foundation.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+
+        let fractionalText = "2024-06-15T14:25:45.250Z"
+        #expect((try? theirPlain.parse(fractionalText)) == nil,
+            "expected reference plain style to reject fractional seconds")
+        #expect((try? ourPlain.parse(fractionalText)) == nil,
+            "expected shim plain style to reject fractional seconds")
+
+        let plainText = "2024-06-15T14:25:45Z"
+        #expect((try? theirFractional.parse(plainText)) == nil,
+            "expected reference fractional style to require fractional seconds")
+        #expect((try? ourFractional.parse(plainText)) == nil,
+            "expected shim fractional style to require fractional seconds")
     }
 
     @Test func rejectsWhatFoundationRejects() {
