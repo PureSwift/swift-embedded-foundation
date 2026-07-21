@@ -78,23 +78,25 @@ import Foundation
         }
     }
 
-    @Test func fractionalSecondStrictnessMatchesFoundation() {
+    @Test func fractionalSecondStrictnessMatchesFoundation() throws {
+        // Real `Foundation` is lenient here: both styles accept a string with
+        // or without fractional seconds, regardless of `includingFractionalSeconds`.
         let ourPlain = FoundationEmbedded.Date.ISO8601FormatStyle()
         let theirPlain = Foundation.Date.ISO8601FormatStyle()
         let ourFractional = FoundationEmbedded.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
         let theirFractional = Foundation.Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
         let fractionalText = "2024-06-15T14:25:45.250Z"
-        #expect((try? theirPlain.parse(fractionalText)) == nil,
-            "expected reference plain style to reject fractional seconds")
-        #expect((try? ourPlain.parse(fractionalText)) == nil,
-            "expected shim plain style to reject fractional seconds")
+        let theirsPlainFractional = try theirPlain.parse(fractionalText)
+        let oursPlainFractional = try ourPlain.parse(fractionalText)
+        #expect(oursPlainFractional.timeIntervalSince1970 == theirsPlainFractional.timeIntervalSince1970,
+            "parse mismatch for \(fractionalText)")
 
         let plainText = "2024-06-15T14:25:45Z"
-        #expect((try? theirFractional.parse(plainText)) == nil,
-            "expected reference fractional style to require fractional seconds")
-        #expect((try? ourFractional.parse(plainText)) == nil,
-            "expected shim fractional style to require fractional seconds")
+        let theirsFractionalPlain = try theirFractional.parse(plainText)
+        let oursFractionalPlain = try ourFractional.parse(plainText)
+        #expect(oursFractionalPlain.timeIntervalSince1970 == theirsFractionalPlain.timeIntervalSince1970,
+            "parse mismatch for \(plainText)")
     }
 
     @Test func rejectsWhatFoundationRejects() {
