@@ -54,17 +54,20 @@ import Testing
         let mailto = URL(string: "mailto:someone@example.com")!
         #expect(mailto.scheme == "mailto")
         #expect(mailto.host == nil)
-        #expect(mailto.path == "")
-        #expect(mailto.lastPathComponent == "")
+        #expect(mailto.path == "someone@example.com")
+        #expect(mailto.lastPathComponent == "someone@example.com")
 
         let withQuery = URL(string: "mailto:a@b.com?subject=hi#note")!
         #expect(withQuery.scheme == "mailto")
-        #expect(withQuery.path == "")
-        #expect(withQuery.query == nil)
-        #expect(withQuery.fragment == nil)
+        #expect(withQuery.path == "a@b.com")
+        #expect(withQuery.query == "subject=hi")
+        #expect(withQuery.fragment == "note")
 
-        for string in ["urn:isbn:0451450523", "tel:+15551234567", "data:text/plain,hello"] {
-            #expect(URL(string: string)!.path == "", "expected opaque path for \(string)")
+        let expectedPaths = ["isbn:0451450523", "+15551234567", "text/plain,hello"]
+        for (string, expectedPath) in zip(
+            ["urn:isbn:0451450523", "tel:+15551234567", "data:text/plain,hello"], expectedPaths
+        ) {
+            #expect(URL(string: string)!.path == expectedPath, "expected opaque path for \(string)")
         }
     }
 
