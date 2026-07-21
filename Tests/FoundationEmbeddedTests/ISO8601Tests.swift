@@ -69,15 +69,14 @@ import Testing
         #expect(try fractional.parse("2024-06-15T14:25:45.5Z").timeIntervalSince1970 == 1718461545.5)
     }
 
-    @Test func fractionalSecondsMustMatchTheStyle() {
+    @Test func fractionalSecondsAreOptionalRegardlessOfStyle() throws {
+        // Matches the reference implementation: fractional seconds are
+        // accepted whether or not they are present, regardless of
+        // `includingFractionalSeconds`.
         let plain = Date.ISO8601FormatStyle()
         let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
-        #expect(throws: ISO8601ParseError.self) {
-            _ = try plain.parse("2024-06-15T14:25:45.250Z")
-        }
-        #expect(throws: ISO8601ParseError.self) {
-            _ = try fractional.parse("2024-06-15T14:25:45Z")
-        }
+        #expect(try plain.parse("2024-06-15T14:25:45.250Z").timeIntervalSince1970 == 1718461545.25)
+        #expect(try fractional.parse("2024-06-15T14:25:45Z").timeIntervalSince1970 == 1718461545)
     }
 
     @Test func parsesNumericOffsets() throws {

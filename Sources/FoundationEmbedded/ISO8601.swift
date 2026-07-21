@@ -210,9 +210,10 @@ extension Date.ISO8601FormatStyle {
 
     /// Parses an ISO 8601 date. The entire string must be consumed.
     ///
-    /// Separators must match this style's configuration, and fractional
-    /// seconds must be present exactly when `includingFractionalSeconds` is
-    /// set. A numeric offset may use either `+01:00` or `+0100` regardless of
+    /// Separators must match this style's configuration. Fractional seconds
+    /// are accepted whether or not they are present, regardless of
+    /// `includingFractionalSeconds`, matching the reference implementation.
+    /// A numeric offset may use either `+01:00` or `+0100` regardless of
     /// `timeZoneSeparator`. A time-zone designator is required.
     ///
     /// - Throws: `ISO8601ParseError` if the string is not a well-formed
@@ -269,14 +270,13 @@ extension Date.ISO8601FormatStyle {
         try expect(timeSeparatorByte)
         let second = try digits(2)
 
-        // Fractional seconds must be present exactly when the style includes
-        // them. The reference implementation is strict in both directions: a
-        // plain style rejects `…45.250Z`, and a fractional style rejects `…45Z`.
+        // Fractional seconds are accepted whether or not the style includes
+        // them, and their absence is likewise accepted regardless of the
+        // style: the reference implementation is lenient in both directions,
+        // parsing `…45.250Z` with a plain style and `…45Z` with a fractional
+        // style.
         var fraction = 0.0
         if index < bytes.count, bytes[index] == UInt8(ascii: ".") {
-            guard includingFractionalSeconds else {
-                throw fail()
-            }
             index += 1
             var scale = 0.1
             var sawDigit = false
@@ -291,8 +291,6 @@ extension Date.ISO8601FormatStyle {
             guard sawDigit else {
                 throw fail()
             }
-        } else if includingFractionalSeconds {
-            throw fail()
         }
 
         // Time-zone designator: Z, or a numeric offset with optional separator.

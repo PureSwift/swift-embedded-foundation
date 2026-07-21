@@ -101,8 +101,8 @@ check(parsedURL.fragment == "frag", "URL fragment")
 check(parsedURL.lastPathComponent == "b.txt", "URL lastPathComponent")
 let opaqueURL = URL(string: "mailto:someone@example.com?subject=hi")!
 check(opaqueURL.scheme == "mailto", "URL opaque scheme")
-check(opaqueURL.path == "", "URL opaque path")
-check(opaqueURL.query == nil, "URL opaque query")
+check(opaqueURL.path == "someone@example.com", "URL opaque path")
+check(opaqueURL.query == "subject=hi", "URL opaque query")
 check(URL(string: "scheme:/rooted/path")!.path == "/rooted/path", "URL rooted path")
 
 // MARK: Double parsing (via the exported _swift_stdlib_strtod_clocale)
@@ -138,8 +138,10 @@ check((try? isoStyle.parse("2024-06-15T14:25:45+01:00")) == isoReference - 3600,
 check((try? isoStyle.parse("2024-06-15T14:25:45")) == nil, "ISO 8601 reject")
 let fractionalStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 check(fractionalStyle.format(isoReference) == "2024-06-15T14:25:45.000Z", "ISO 8601 fractional")
-check((try? isoStyle.parse("2024-06-15T14:25:45.250Z")) == nil, "ISO 8601 plain rejects fraction")
-check((try? fractionalStyle.parse("2024-06-15T14:25:45Z")) == nil, "ISO 8601 fractional requires fraction")
+check((try? isoStyle.parse("2024-06-15T14:25:45.250Z")) == isoReference + 0.25,
+    "ISO 8601 plain accepts fraction")
+check((try? fractionalStyle.parse("2024-06-15T14:25:45Z")) == isoReference,
+    "ISO 8601 fractional accepts plain")
 check((try? fractionalStyle.parse("2024-06-15T14:25:45.250Z")) == isoReference + 0.25,
     "ISO 8601 fractional parse")
 

@@ -11,8 +11,8 @@
 //  base, or file-system semantics.
 //
 //  URLs with an opaque path (a scheme, no authority, and a path not beginning
-//  with "/") expose no path, query or fragment, matching the reference
-//  implementation. See `parse(_:)`.
+//  with "/", e.g. `mailto:someone@example.com`) still report the remainder
+//  as their path, matching the reference implementation. See `parse(_:)`.
 //
 
 public struct URL: Sendable {
@@ -49,9 +49,9 @@ extension URL {
     /// The path, percent-decoded, without any trailing slash (the root path
     /// `"/"` is preserved).
     ///
-    /// Empty if the URL has no path, or if its path is opaque — a scheme with
-    /// no authority whose path does not begin with `/`, such as
-    /// `mailto:someone@example.com`.
+    /// For an opaque URL — a scheme with no authority whose path does not
+    /// begin with `/`, such as `mailto:someone@example.com` — this is the
+    /// entire scheme-specific part (`"someone@example.com"`).
     public var path: String {
         var path = URL.percentDecode(parsed().path)
         if path.utf8.count > 1, path.hasSuffix("/") {
@@ -174,19 +174,7 @@ extension URL {
                 }
             }
         }
-        // RFC 3986 calls a path opaque when the URL has a scheme, carries no
-        // authority, and the path does not begin with "/" — `mailto:`, `urn:`,
-        // `tel:`, `data:` and friends. Such a URL has no hierarchical
-        // structure to expose, so the reference implementation reports no
-        // path, query or fragment for it at all. A rooted path without an
-        // authority (`scheme:/a/b`) is still hierarchical.
-        let pathIsRooted = rest.first == UInt8(ascii: "/")
-        if result.scheme != nil, result.hasAuthority == false, pathIsRooted == false {
-            result.query = nil
-            result.fragment = nil
-        } else {
-            result.path = String(decoding: rest, as: UTF8.self)
-        }
+        result.path = String(decoding: rest, as: UTF8.self)
         return result
     }
 
