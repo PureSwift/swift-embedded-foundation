@@ -123,6 +123,26 @@ import Testing
 
     #endif
 
+    /// The current zone and calendar, whichever build this is: the
+    /// process's, or the platform's.
+    @Test func currentZoneAndCalendar() {
+        let current = FoundationEmbedded.TimeZone.current
+        #expect(!current.identifier.isEmpty)
+        let offset = current.secondsFromGMT(for: FoundationEmbedded.Date(timeIntervalSince1970: 0))
+        #expect(abs(offset) <= 18 * 3600)
+
+        // In the current zone and locale, as Foundation's is.
+        let calendar = FoundationEmbedded.Calendar(identifier: .gregorian)
+        #expect(calendar.timeZone == current)
+        #expect(calendar.locale == FoundationEmbedded.Locale.current)
+        #expect(FoundationEmbedded.Calendar.current.timeZone == current)
+        #if !PlatformHooks
+        #expect(FoundationEmbedded.Calendar.current.identifier == .gregorian)
+        #expect(FoundationEmbedded.Calendar.current.firstWeekday == 1)
+        #expect(FoundationEmbedded.Calendar.current.minimumDaysInFirstWeek == 1)
+        #endif
+    }
+
     /// A fixed zone is the same in every build, whatever the process's is.
     @Test func fixedZonesDontFollowTheProcess() {
         inZone("Asia/Tokyo") {

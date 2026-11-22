@@ -3,15 +3,11 @@ import Testing
 
 @Suite struct TimeZoneTests {
 
-    @Test func gmtAndCurrent() {
+    /// `TimeZone.current` is tried in `SystemClockAndZoneTests`, where
+    /// nothing changes the zone meanwhile.
+    @Test func gmt() {
         #expect(TimeZone.gmt.secondsFromGMT == 0)
         #expect(TimeZone.gmt.identifier == "GMT")
-        // The process's zone, or the platform's: whichever, it answers
-        // for itself, and a fixed zone keeps its offset.
-        let current = TimeZone.current
-        #expect(!current.identifier.isEmpty)
-        let offset = current.secondsFromGMT(for: Date(timeIntervalSince1970: 0))
-        #expect(abs(offset) <= 18 * 3600)
         #expect(TimeZone.gmt.secondsFromGMT(for: Date(timeIntervalSince1970: 1_782_907_200)) == 0)
     }
 

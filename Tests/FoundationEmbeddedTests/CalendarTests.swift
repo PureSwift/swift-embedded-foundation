@@ -3,14 +3,12 @@ import Testing
 
 @Suite struct CalendarTests {
 
-    @Test func current() {
-        // In the current locale, as Foundation's is. The zone is tried
-        // where nothing changes it meanwhile.
-        #expect(Calendar(identifier: .gregorian).locale == Locale.current)
+    /// `Calendar.current` and `Calendar(identifier:)` are tried in
+    /// `SystemClockAndZoneTests`, where nothing changes the zone meanwhile.
+    @Test func weekSettings() {
         #if !PlatformHooks
-        #expect(Calendar.current.identifier == .gregorian)
-        #expect(Calendar.current.firstWeekday == 1)
-        #expect(Calendar.current.minimumDaysInFirstWeek == 1)
+        #expect(Calendar.gmt.firstWeekday == 1)
+        #expect(Calendar.gmt.minimumDaysInFirstWeek == 1)
         #endif
         var calendar = Calendar.gmt
         calendar.firstWeekday = 2
