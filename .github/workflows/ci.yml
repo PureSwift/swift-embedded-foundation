@@ -13,6 +13,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Test
       run: swift test
+    # With the PlatformHooks trait, over the tests' own platform.
+    - name: Test with a platform
+      run: swift test --enable-all-traits
 
   linux:
     name: Linux (Swift 6.3.3)
@@ -22,6 +25,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: Test
       run: swift test
+    - name: Test with a platform
+      run: swift test --enable-all-traits
 
   android:
     name: Android (Swift 6.3.2)

@@ -27,6 +27,8 @@
 #   COBERTURA_OUTPUT         Cobertura XML output file (default: .build/coverage/coverage.xml).
 #   SKIP_TEST                If set to 1, reuse existing coverage data instead of
 #                            re-running `swift test` (useful while iterating).
+#   SWIFT_TEST_FLAGS         Extra flags for `swift test`, e.g. "--enable-all-traits"
+#                            to measure the build with every trait.
 
 set -euo pipefail
 
@@ -45,11 +47,13 @@ fi
 # 1. Run the tests with coverage instrumentation.
 if [ "${SKIP_TEST:-0}" != "1" ]; then
     echo "==> Running tests with code coverage"
-    swift test --enable-code-coverage
+    # shellcheck disable=SC2086
+    swift test --enable-code-coverage ${SWIFT_TEST_FLAGS:-}
 fi
 
 # 2. Locate the coverage artifacts SwiftPM produced.
-CODECOV_JSON="$(swift test --enable-code-coverage --show-codecov-path)"
+# shellcheck disable=SC2086
+CODECOV_JSON="$(swift test --enable-code-coverage ${SWIFT_TEST_FLAGS:-} --show-codecov-path)"
 COV_DIR="$(dirname "$CODECOV_JSON")"
 PROFDATA="$COV_DIR/default.profdata"
 
