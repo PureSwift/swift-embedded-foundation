@@ -23,6 +23,10 @@ check(Date(timeIntervalSince1970: 978307200).timeIntervalSinceReferenceDate == 0
 check((Date(timeIntervalSinceReferenceDate: 100) + 10).timeIntervalSinceReferenceDate == 110, "Date +")
 check(Date(timeIntervalSinceReferenceDate: 1) < Date(timeIntervalSinceReferenceDate: 2), "Date <")
 
+// The clock is the C library's, which this host has.
+check(Date().timeIntervalSince1970 > 1_600_000_000, "Date now")
+check(Date.now.timeIntervalSinceNow <= 0, "Date timeIntervalSinceNow")
+
 // MARK: Data
 
 var data = Data([1, 2])
@@ -65,6 +69,10 @@ check(UInt8(hexadecimal: "ZZ") == nil, "hex reject")
 
 check(Locale.current.identifier == "en_US_POSIX", "Locale current")
 check(TimeZone.gmt.secondsFromGMT == 0, "TimeZone gmt")
+// The process's zone, from the C library.
+check(!TimeZone.current.identifier.isEmpty, "TimeZone current")
+let currentOffset = TimeZone.current.secondsFromGMT(for: Date())
+check(currentOffset >= -18 * 3600 && currentOffset <= 18 * 3600, "TimeZone current offset")
 check(TimeZone(secondsFromGMT: 3600)?.identifier == "GMT+0100", "TimeZone offset id")
 check(TimeZone(identifier: "GMT+05:30")?.secondsFromGMT == 19800, "TimeZone parse")
 
@@ -157,7 +165,8 @@ check(IndexPath(indexes: [1, 2]) == IndexPath(arrayLiteral: 1, 2), "IndexPath eq
 
 // MARK: Calendar
 
-let calendar = Calendar.current
+var calendar = Calendar.current
+calendar.timeZone = .gmt
 check(calendar.date(from: DateComponents(year: 2001, month: 1, day: 1))?
     .timeIntervalSinceReferenceDate == 0, "Calendar date(from:)")
 check(calendar.date(from: DateComponents(year: 2001)) == nil, "Calendar missing fields")
