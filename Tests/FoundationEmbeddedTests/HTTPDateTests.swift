@@ -27,7 +27,7 @@ import Testing
     @Test func formatsEveryMonth() {
         let expected = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = Calendar.gmt
         for month in 1...12 {
             let date = calendar.date(from: DateComponents(year: 2024, month: month, day: 15))!
             let formatted = style.format(date)
@@ -38,7 +38,7 @@ import Testing
     @Test func formatsEveryWeekday() {
         // 2024-01-07 was a Sunday; seven consecutive days cover every name.
         let expected = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = Calendar.gmt
         let start = calendar.date(from: DateComponents(year: 2024, month: 1, day: 7))!
         for offset in 0..<7 {
             let formatted = style.format(start + Double(offset) * 86400)
@@ -58,7 +58,7 @@ import Testing
     }
 
     @Test func roundTrips() throws {
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = Calendar.gmt
         let dates = [
             Date(timeIntervalSince1970: 0),
             Date(timeIntervalSince1970: 784111777),

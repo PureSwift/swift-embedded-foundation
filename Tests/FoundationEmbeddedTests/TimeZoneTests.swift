@@ -6,7 +6,13 @@ import Testing
     @Test func gmtAndCurrent() {
         #expect(TimeZone.gmt.secondsFromGMT == 0)
         #expect(TimeZone.gmt.identifier == "GMT")
-        #expect(TimeZone.current == TimeZone.gmt)
+        // The process's zone, or the platform's: whichever, it answers
+        // for itself, and a fixed zone keeps its offset.
+        let current = TimeZone.current
+        #expect(!current.identifier.isEmpty)
+        let offset = current.secondsFromGMT(for: Date(timeIntervalSince1970: 0))
+        #expect(abs(offset) <= 18 * 3600)
+        #expect(TimeZone.gmt.secondsFromGMT(for: Date(timeIntervalSince1970: 1_782_907_200)) == 0)
     }
 
     @Test func identifierGMTAndUTC() {
@@ -31,9 +37,13 @@ import Testing
     }
 
     @Test func invalidIdentifiers() {
-        #expect(TimeZone(identifier: "America/New_York") == nil)
         #expect(TimeZone(identifier: "GMT+99:99") == nil)
+        #expect(TimeZone(identifier: "Mars/Olympus") == nil)
+        #if !PlatformHooks
+        // By itself the package has no zone database.
+        #expect(TimeZone(identifier: "America/New_York") == nil)
         #expect(TimeZone(identifier: "PST") == nil)
+        #endif
     }
 
     @Test func secondsFromGMTInitializer() {

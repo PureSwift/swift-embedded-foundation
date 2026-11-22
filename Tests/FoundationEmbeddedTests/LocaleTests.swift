@@ -3,9 +3,11 @@ import Testing
 
 @Suite struct LocaleTests {
 
+    #if !PlatformHooks
     @Test func currentIsPOSIX() {
         #expect(Locale.current.identifier == "en_US_POSIX")
     }
+    #endif
 
     @Test func customIdentifier() {
         let locale = Locale(identifier: "fr_FR")
