@@ -55,10 +55,15 @@ import Testing
             // The C library has no name to take back.
             #expect(FoundationEmbedded.TimeZone(identifier: "Europe/Berlin") == nil)
         }
-        inZone(":Asia/Tokyo") {
+        inZone("Asia/Tokyo") {
             let zone = FoundationEmbedded.TimeZone.current
             #expect(zone.identifier == "Asia/Tokyo")
             #expect(zone.secondsFromGMT(for: Self.at("2026-07-01T12:00:00Z")) == 9 * 3600)
+        }
+        // `:Asia/Tokyo` names the same zone where the C library takes the
+        // colon, which Android's doesn't. Its name is the same either way.
+        inZone(":Asia/Tokyo") {
+            #expect(FoundationEmbedded.TimeZone.current.identifier == "Asia/Tokyo")
         }
         inZone("") {
             #expect(FoundationEmbedded.TimeZone.current.identifier == "Local")
