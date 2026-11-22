@@ -3,9 +3,19 @@ import Testing
 
 @Suite struct CalendarTests {
 
-    @Test func onlyGregorian() {
-        #expect(Calendar.current.identifier == .gregorian)
-        #expect(Calendar(identifier: .gregorian).timeZone == .gmt)
+    /// `Calendar.current` and `Calendar(identifier:)` are tried in
+    /// `SystemClockAndZoneTests`, where nothing changes the zone meanwhile.
+    @Test func weekSettings() {
+        #if !PlatformHooks
+        #expect(Calendar.gmt.firstWeekday == 1)
+        #expect(Calendar.gmt.minimumDaysInFirstWeek == 1)
+        #endif
+        var calendar = Calendar.gmt
+        calendar.firstWeekday = 2
+        calendar.minimumDaysInFirstWeek = 4
+        #expect(calendar.firstWeekday == 2)
+        #expect(calendar.minimumDaysInFirstWeek == 4)
+        #expect(calendar != Calendar.gmt)
     }
 
     // MARK: - Civil <-> Days
@@ -42,19 +52,19 @@ import Testing
     // MARK: - Components <-> TimeInterval
 
     @Test func referenceDateIsZero() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let components = DateComponents(year: 2001, month: 1, day: 1, hour: 0, minute: 0, second: 0)
         #expect(calendar.timeIntervalSinceReferenceDate(from: components) == 0)
     }
 
     @Test func missingFieldsReturnNil() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         #expect(calendar.timeIntervalSinceReferenceDate(from: DateComponents(year: 2001, month: 1)) == nil)
         #expect(calendar.timeIntervalSinceReferenceDate(from: DateComponents()) == nil)
     }
 
     @Test func componentTimeZoneOffsetApplied() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let plusOne = DateComponents(
             year: 2001, month: 1, day: 1, hour: 0, minute: 0, second: 0,
             timeZone: TimeZone(secondsFromGMT: 3600))
@@ -63,7 +73,7 @@ import Testing
     }
 
     @Test func decomposeReferenceDate() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let components = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: 0)
         #expect(components.year == 2001)
         #expect(components.month == 1)
@@ -75,7 +85,7 @@ import Testing
     }
 
     @Test func decomposeNegativeInterval() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         // One second before the reference date: 2000-12-31 23:59:59.
         let components = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: -1)
         #expect(components.year == 2000)
@@ -89,14 +99,18 @@ import Testing
     // MARK: - Date Bridging
 
     @Test func dateFromComponents() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         #expect(calendar.date(from: DateComponents(year: 2001, month: 1, day: 1))?
             .timeIntervalSinceReferenceDate == 0)
+        #if !PlatformHooks
+        // The package's own arithmetic needs the day. A platform's
+        // takes it as the first.
         #expect(calendar.date(from: DateComponents(year: 2001, month: 1)) == nil)
+        #endif
     }
 
     @Test func componentsFromDate() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let components = calendar.dateComponents([.year, .month, .day], from: Date(timeIntervalSinceReferenceDate: 0))
         #expect(components.year == 2001)
         #expect(components.month == 1)
@@ -104,7 +118,7 @@ import Testing
     }
 
     @Test func singleComponentFromDate() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let reference = Date(timeIntervalSinceReferenceDate: 0)
         #expect(calendar.component(.era, from: reference) == 1)
         #expect(calendar.component(.year, from: reference) == 2001)
@@ -122,7 +136,7 @@ import Testing
     // MARK: - Calendrical Calculations
 
     @Test func startOfDay() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let noon = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 12, minute: 30))!
         let midnight = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15))!
         #expect(calendar.startOfDay(for: noon) == midnight)
@@ -130,7 +144,7 @@ import Testing
     }
 
     @Test func sameDay() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let morning = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 1))!
         let evening = calendar.date(from: DateComponents(year: 2024, month: 6, day: 15, hour: 23))!
         let nextDay = calendar.date(from: DateComponents(year: 2024, month: 6, day: 16))!
@@ -139,7 +153,7 @@ import Testing
     }
 
     @Test func addingComponents() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let base = calendar.date(from: DateComponents(year: 2024, month: 1, day: 15, hour: 10))!
 
         let plusMonth = calendar.date(byAdding: DateComponents(month: 1), to: base)
@@ -152,7 +166,7 @@ import Testing
     }
 
     @Test func addingClampsDayOfMonth() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let jan31 = calendar.date(from: DateComponents(year: 2024, month: 1, day: 31))!
 
         let feb = calendar.date(byAdding: .month, value: 1, to: jan31)
@@ -168,7 +182,7 @@ import Testing
     }
 
     @Test func addingNegativeAndTimeComponents() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let base = calendar.date(from: DateComponents(year: 2024, month: 3, day: 31))!
 
         let backTwoMonths = calendar.date(byAdding: .month, value: -2, to: base)
@@ -182,7 +196,7 @@ import Testing
     }
 
     @Test func rangeOfComponents() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let leapFebruary = calendar.date(from: DateComponents(year: 2024, month: 2, day: 10))!
         let plainFebruary = calendar.date(from: DateComponents(year: 2023, month: 2, day: 10))!
         #expect(calendar.range(of: .day, in: .month, for: leapFebruary) == 1..<30)
@@ -190,11 +204,15 @@ import Testing
         #expect(calendar.range(of: .day, in: .year, for: leapFebruary) == 1..<367)
         #expect(calendar.range(of: .day, in: .year, for: plainFebruary) == 1..<366)
         #expect(calendar.range(of: .month, in: .year, for: leapFebruary) == 1..<13)
+        #if PlatformHooks
+        #expect(calendar.range(of: .hour, in: .day, for: leapFebruary) == 0..<24)
+        #else
         #expect(calendar.range(of: .hour, in: .day, for: leapFebruary) == nil)
+        #endif
     }
 
     @Test func componentsRoundTrip() {
-        let calendar = Calendar.current
+        let calendar = Calendar.gmt
         let original = DateComponents(year: 2024, month: 6, day: 15, hour: 14, minute: 25, second: 45)
         let interval = calendar.timeIntervalSinceReferenceDate(from: original)
         let roundTripped = calendar.dateComponents(fromTimeIntervalSinceReferenceDate: interval!)

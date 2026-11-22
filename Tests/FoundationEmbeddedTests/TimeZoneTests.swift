@@ -3,10 +3,12 @@ import Testing
 
 @Suite struct TimeZoneTests {
 
-    @Test func gmtAndCurrent() {
+    /// `TimeZone.current` is tried in `SystemClockAndZoneTests`, where
+    /// nothing changes the zone meanwhile.
+    @Test func gmt() {
         #expect(TimeZone.gmt.secondsFromGMT == 0)
         #expect(TimeZone.gmt.identifier == "GMT")
-        #expect(TimeZone.current == TimeZone.gmt)
+        #expect(TimeZone.gmt.secondsFromGMT(for: Date(timeIntervalSince1970: 1_782_907_200)) == 0)
     }
 
     @Test func identifierGMTAndUTC() {
@@ -31,9 +33,13 @@ import Testing
     }
 
     @Test func invalidIdentifiers() {
-        #expect(TimeZone(identifier: "America/New_York") == nil)
         #expect(TimeZone(identifier: "GMT+99:99") == nil)
+        #expect(TimeZone(identifier: "Mars/Olympus") == nil)
+        #if !PlatformHooks
+        // By itself the package has no zone database.
+        #expect(TimeZone(identifier: "America/New_York") == nil)
         #expect(TimeZone(identifier: "PST") == nil)
+        #endif
     }
 
     @Test func secondsFromGMTInitializer() {

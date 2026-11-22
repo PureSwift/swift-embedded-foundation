@@ -7,7 +7,7 @@ import Testing
 /// does not support). Expected values were generated with the ICU calendar.
 @Suite struct CalendarReferenceSuiteTests {
 
-    private let calendar = Calendar.current
+    private let calendar = Calendar.gmt
 
     @Test func numberOfDaysInMonth() {
         #expect(Calendar.daysInMonth(year: 2023, month: 2) == 28) // not leap year
@@ -62,7 +62,9 @@ import Testing
         // Julian/Gregorian calendar (Julian before October 1582). This shim is
         // proleptic Gregorian, which labels the same instant two days earlier —
         // the same reason `Date.distantPast.description` is 0000-12-30.
+        #if !PlatformHooks
         test(timeIntervalSince1970: -62135765813.0, expectedEra: 1,
              year: 0, month: 12, day: 30, hour: 1, minute: 3, second: 7, weekday: 7)
+        #endif
     }
 }

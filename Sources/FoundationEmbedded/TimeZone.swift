@@ -6,27 +6,54 @@
 //  (e.g. Embedded Swift). Compiles on any platform; the consumer is
 //  responsible for gating between this and `Foundation.TimeZone`.
 //
-//  Not API-complete — a fixed offset from GMT, no daylight-saving or
-//  named-zone database.
+//  The package has no zone database. By itself it knows fixed offsets
+//  from GMT, and the process's own zone where the C library has one
+//  (`localtime_r`). Built with the `PlatformHooks` trait it asks a
+//  platform about zones by name (`FoundationEmbeddedPlatform.h`).
 //
+
+#if PlatformHooks
+import FoundationEmbeddedPlatform
+#else
+import FoundationEmbeddedShims
+#endif
 
 public struct TimeZone: Sendable, Hashable {
 
     /// The time-zone identifier, e.g. `"GMT"`.
     public let identifier: String
 
-    /// The offset from GMT, in seconds. Fixed — no daylight-saving transitions.
+    /// The offset from GMT, in seconds, of a fixed-offset zone; 0 for any
+    /// other.
     ///
     /// - Note: Internal. `Foundation.TimeZone` exposes the offset only through
     ///   `secondsFromGMT(for:)`, so this stays out of the public surface.
     @usableFromInline
     let secondsFromGMT: Int
 
-    /// Create a fixed-offset time zone with an explicit identifier.
+    /// Where the zone's offset comes from.
     @usableFromInline
-    init(identifier: String, secondsFromGMT: Int) {
+    let kind: Kind
+
+    @usableFromInline
+    enum Kind: UInt8, Sendable, Hashable {
+
+        /// The offset in the identifier. It never changes.
+        case fixed
+
+        /// The process's zone, as the C library has it.
+        case system
+
+        /// A zone the platform knows by name.
+        case named
+    }
+
+    /// Create a time zone with an explicit identifier.
+    @usableFromInline
+    init(identifier: String, secondsFromGMT: Int, kind: Kind = .fixed) {
         self.identifier = identifier
         self.secondsFromGMT = secondsFromGMT
+        self.kind = kind
     }
 }
 
@@ -35,18 +62,25 @@ extension TimeZone {
     /// Create a time zone from an identifier.
     ///
     /// Recognizes `"GMT"`, `"UTC"`, and `"GMT±HH:MM"` / `"GMT±HHMM"` offsets.
-    /// Returns `nil` for anything else, since there is no zone database.
+    /// With the `PlatformHooks` trait, also any name the platform knows, such
+    /// as `"Europe/Berlin"`. Returns `nil` for anything else.
     public init?(identifier: String) {
         if identifier == "GMT" || identifier == "UTC" {
             self.init(identifier: identifier, secondsFromGMT: 0)
             return
         }
-        guard identifier.hasPrefix("GMT"),
-            let seconds = TimeZone.parseGMTOffset(identifier)
-        else {
+        if identifier.hasPrefix("GMT"), let seconds = TimeZone.parseGMTOffset(identifier) {
+            self.init(identifier: identifier, secondsFromGMT: seconds)
+            return
+        }
+        #if PlatformHooks
+        guard Platform.isKnownTimeZone(identifier) else {
             return nil
         }
-        self.init(identifier: identifier, secondsFromGMT: seconds)
+        self.init(identifier: identifier, secondsFromGMT: 0, kind: .named)
+        #else
+        return nil
+        #endif
     }
 
     /// Create a fixed-offset time zone, naming it after the offset.
@@ -67,11 +101,30 @@ extension TimeZone {
 
     /// The current time zone.
     ///
-    /// - Note: Without a system clock configuration this returns GMT, not a
-    ///   user-configured zone.
-    @inlinable
+    /// With the `PlatformHooks` trait, the user's zone as the platform has it.
+    /// Without it, the process's zone as the C library has it, whose offset
+    /// follows daylight saving; its `identifier` is the `TZ` variable's value,
+    /// or `"Local"`, since the C library has no name for it. Where there is no
+    /// C library, or it knows no zone (WASI), GMT.
     public static var current: TimeZone {
-        .gmt
+        #if PlatformHooks
+        return Platform.currentTimeZone()
+        #else
+        var offset: Int32 = 0
+        guard swift_embedded_shims_local_offset(0, &offset) else {
+            return .gmt
+        }
+        var name = "Local"
+        if let variable = swift_embedded_shims_timezone_name() {
+            let value = String(cString: variable)
+            // `:Europe/Berlin` is the same zone as `Europe/Berlin`.
+            let trimmed = value.utf8.first == UInt8(ascii: ":") ? String(value.dropFirst()) : value
+            if !trimmed.isEmpty {
+                name = trimmed
+            }
+        }
+        return TimeZone(identifier: name, secondsFromGMT: 0, kind: .system)
+        #endif
     }
 
     private static func gmtIdentifier(forSeconds seconds: Int) -> String {
@@ -158,13 +211,77 @@ extension TimeZone {
 
     /// The offset from GMT, in seconds, for the given date.
     ///
-    /// This shim is a fixed offset, so the date is ignored. Signature matches
+    /// A fixed-offset zone ignores the date. Signature matches
     /// `Foundation.TimeZone.secondsFromGMT(for:)`.
     @inlinable
     public func secondsFromGMT(for date: Date) -> Int {
-        secondsFromGMT
+        kind == .fixed ? secondsFromGMT : variableSecondsFromGMT(for: date)
+    }
+
+    /// The offset of a zone whose offset changes: the process's, from the C
+    /// library, or a named one, from the platform.
+    @usableFromInline
+    func variableSecondsFromGMT(for date: Date) -> Int {
+        #if PlatformHooks
+        return Platform.offset(of: self, at: date)
+        #else
+        var offset: Int32 = 0
+        guard swift_embedded_shims_local_offset(date.timeIntervalSince1970, &offset) else {
+            return 0
+        }
+        return Int(offset)
+        #endif
     }
 }
+
+#if PlatformHooks
+
+// MARK: - From the platform
+
+extension TimeZone {
+
+    /// Foundation's `NSTimeZone.NameStyle`.
+    public enum NameStyle: Int, Sendable, Hashable {
+        case standard = 0
+        case shortStandard = 1
+        case daylightSaving = 2
+        case shortDaylightSaving = 3
+        case generic = 4
+        case shortGeneric = 5
+    }
+
+    /// Every time zone identifier the platform knows.
+    public static var knownTimeZoneIdentifiers: [String] {
+        Platform.timeZoneIdentifiers()
+    }
+
+    /// Whether daylight saving time is in effect at the given date.
+    public func isDaylightSavingTime(for date: Date) -> Bool {
+        daylightSavingTimeOffset(for: date) != 0
+    }
+
+    /// What daylight saving time adds at the given date; 0 outside it.
+    public func daylightSavingTimeOffset(for date: Date) -> TimeInterval {
+        kind == .fixed ? 0 : TimeInterval(Platform.daylightSavingOffset(of: self, at: date))
+    }
+
+    /// The next change of the zone's offset after the given date.
+    public func nextDaylightSavingTimeTransition(after date: Date) -> Date? {
+        kind == .fixed ? nil : Platform.nextTransition(of: self, after: date)
+    }
+
+    /// The zone's abbreviation at the given date, such as `"CET"`.
+    public func abbreviation(for date: Date) -> String? {
+        Platform.abbreviation(of: self, at: date)
+    }
+
+    /// The zone's name in a locale, such as `"Central European Time"`.
+    public func localizedName(for style: NameStyle, locale: Locale?) -> String? {
+        Platform.name(of: self, style: style, locale: locale)
+    }
+}
+
+#endif
 
 // MARK: - CustomStringConvertible
 
@@ -175,6 +292,6 @@ extension TimeZone: CustomStringConvertible, CustomDebugStringConvertible {
     }
 
     public var debugDescription: String {
-        "\(identifier) (\(secondsFromGMT)s from GMT)"
+        kind == .fixed ? "\(identifier) (\(secondsFromGMT)s from GMT)" : identifier
     }
 }

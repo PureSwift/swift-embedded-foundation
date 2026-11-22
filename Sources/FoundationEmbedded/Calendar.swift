@@ -6,39 +6,163 @@
 //  (e.g. Embedded Swift). Compiles on any platform; the consumer is
 //  responsible for gating between this and `Foundation.Calendar`.
 //
-//  Gregorian calendar only. The proleptic Gregorian date <-> time-interval
-//  math is Foundation-free. Compiles on any platform, using this module's own
-//  `Date`; the consumer decides when to use it in place of `Foundation.Calendar`.
+//  By itself the package has the Gregorian calendar: the proleptic
+//  Gregorian date <-> time-interval math is Foundation-free, in a
+//  fixed-offset zone or in the process's own. Built with the
+//  `PlatformHooks` trait, every public operation is the platform's
+//  (`FoundationEmbeddedPlatform.h`), in any calendar and any zone, and the
+//  package's own code keeps to the math below.
 //
 
 public struct Calendar: Sendable, Hashable {
 
     public enum Identifier: Sendable, Hashable {
         case gregorian
+        #if PlatformHooks
+        case buddhist
+        case chinese
+        case coptic
+        case ethiopicAmeteMihret
+        case ethiopicAmeteAlem
+        case hebrew
+        case iso8601
+        case indian
+        case islamic
+        case islamicCivil
+        case japanese
+        case persian
+        case republicOfChina
+        case islamicTabular
+        case islamicUmmAlQura
+        #endif
     }
 
     public enum Component: Sendable, Hashable {
         case era, year, month, day, hour, minute, second, nanosecond, weekday
+        case weekdayOrdinal, weekOfMonth, weekOfYear, yearForWeekOfYear, dayOfYear
     }
 
     public let identifier: Identifier
     public var timeZone: TimeZone
     public var locale: Locale?
 
-    /// - Precondition: `identifier` must be `.gregorian`; it is the only
-    ///   calendar this shim implements.
+    /// 1...7 once set; 0 for the locale's.
+    @usableFromInline
+    var storedFirstWeekday: Int
+
+    /// 1...7 once set; 0 for the locale's.
+    @usableFromInline
+    var storedMinimumDays: Int
+
+    /// A calendar in the current time zone and locale, as in Foundation.
     public init(identifier: Identifier) {
-        precondition(identifier == .gregorian, "FoundationEmbedded.Calendar only supports the Gregorian calendar")
         self.identifier = identifier
-        self.timeZone = .gmt
+        self.timeZone = .current
         self.locale = .current
+        self.storedFirstWeekday = 0
+        self.storedMinimumDays = 0
     }
 
-    /// The current calendar (always Gregorian, in GMT).
+    /// The Gregorian calendar in GMT, which needs nothing of a platform.
+    /// What the package's own formats count in.
+    init(gregorianIn timeZone: TimeZone) {
+        self.identifier = .gregorian
+        self.timeZone = timeZone
+        self.locale = nil
+        self.storedFirstWeekday = 0
+        self.storedMinimumDays = 0
+    }
+
+    /// The current calendar.
+    ///
+    /// With the `PlatformHooks` trait, the user's calendar as the platform
+    /// has it. Without it, the Gregorian calendar. Either way it is in
+    /// `TimeZone.current` and `Locale.current`.
     public static var current: Calendar {
-        Calendar(identifier: .gregorian)
+        #if PlatformHooks
+        return Platform.currentCalendar()
+        #else
+        return Calendar(identifier: .gregorian)
+        #endif
+    }
+
+    /// The first day of the week: 1 is Sunday. The locale's until it is
+    /// set, which without the `PlatformHooks` trait is Sunday.
+    public var firstWeekday: Int {
+        get {
+            if storedFirstWeekday != 0 {
+                return storedFirstWeekday
+            }
+            #if PlatformHooks
+            return Platform.firstWeekday(of: self)
+            #else
+            return 1
+            #endif
+        }
+        set {
+            storedFirstWeekday = newValue
+        }
+    }
+
+    /// How many days of a year its first week must have. The locale's until
+    /// it is set, which without the `PlatformHooks` trait is 1.
+    public var minimumDaysInFirstWeek: Int {
+        get {
+            if storedMinimumDays != 0 {
+                return storedMinimumDays
+            }
+            #if PlatformHooks
+            return Platform.minimumDays(of: self)
+            #else
+            return 1
+            #endif
+        }
+        set {
+            storedMinimumDays = newValue
+        }
     }
 }
+
+#if PlatformHooks
+
+extension Calendar.Identifier {
+
+    /// The calendar's Unicode name, as the platform's header carries it.
+    var name: String {
+        switch self {
+        case .gregorian: return "gregorian"
+        case .buddhist: return "buddhist"
+        case .chinese: return "chinese"
+        case .coptic: return "coptic"
+        case .ethiopicAmeteMihret: return "ethiopic"
+        case .ethiopicAmeteAlem: return "ethioaa"
+        case .hebrew: return "hebrew"
+        case .iso8601: return "iso8601"
+        case .indian: return "indian"
+        case .islamic: return "islamic"
+        case .islamicCivil: return "islamic-civil"
+        case .japanese: return "japanese"
+        case .persian: return "persian"
+        case .republicOfChina: return "roc"
+        case .islamicTabular: return "islamic-tbla"
+        case .islamicUmmAlQura: return "islamic-umalqura"
+        }
+    }
+
+    static let all: [Calendar.Identifier] = [
+        .gregorian, .buddhist, .chinese, .coptic, .ethiopicAmeteMihret, .ethiopicAmeteAlem, .hebrew, .iso8601,
+        .indian, .islamic, .islamicCivil, .japanese, .persian, .republicOfChina, .islamicTabular, .islamicUmmAlQura,
+    ]
+
+    init?(name: String) {
+        guard let identifier = Calendar.Identifier.all.first(where: { $0.name == name }) else {
+            return nil
+        }
+        self = identifier
+    }
+}
+
+#endif
 
 // MARK: - Gregorian Math (Foundation-free)
 
@@ -103,6 +227,44 @@ extension Calendar {
         return (value % divisor != 0 && (value ^ divisor) < 0) ? quotient - 1 : quotient
     }
 
+    // MARK: Zones
+
+    /// The moment a wall-clock time names in a zone, both in seconds since
+    /// 1970.
+    ///
+    /// A fixed offset is subtracted. For a zone whose offset changes, a time
+    /// that doesn't exist (the clocks went forward over it) is moved later
+    /// by the gap, and one that happens twice (they went back) is the
+    /// first, as Foundation has them.
+    static func moment(ofLocal local: Double, in zone: TimeZone) -> Double {
+        if zone.kind == .fixed {
+            return local - Double(zone.secondsFromGMT)
+        }
+        // The offsets a day either side of it, which a change of clocks
+        // falls between.
+        let before = Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: local - 86400)))
+        let after = Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: local + 86400)))
+        let first = local - before
+        if before == after {
+            return first
+        }
+        let second = local - after
+        let firstHolds = Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: first))) == before
+        let secondHolds = Double(zone.secondsFromGMT(for: Date(timeIntervalSince1970: second))) == after
+        switch (firstHolds, secondHolds) {
+        case (true, true): return Swift.min(first, second)
+        case (true, false): return first
+        case (false, true): return second
+        case (false, false): return Swift.max(first, second)
+        }
+    }
+
+    /// A moment as the zone's clocks show it: seconds since 1970 with the
+    /// zone's offset at that moment added.
+    func local(_ secondsSince1970: Double) -> Double {
+        secondsSince1970 + Double(timeZone.secondsFromGMT(for: Date(timeIntervalSince1970: secondsSince1970)))
+    }
+
     /// Convert `DateComponents` to a time interval since the reference date.
     ///
     /// Returns `nil` if year, month, or day are missing. Uses the components'
@@ -118,15 +280,15 @@ extension Calendar {
         let secondsOfDay = (components.hour ?? 0) * 3600
             + (components.minute ?? 0) * 60
             + (components.second ?? 0)
-        let offset = (components.timeZone ?? timeZone).secondsFromGMT
-        let secondsSince1970 = Double(days * 86400 + secondsOfDay - offset)
+        let local = Double(days * 86400 + secondsOfDay)
+        let secondsSince1970 = Calendar.moment(ofLocal: local, in: components.timeZone ?? timeZone)
         let nanoseconds = Double(components.nanosecond ?? 0) / 1_000_000_000
         return secondsSince1970 + nanoseconds - Calendar.referenceDateToUnixEpoch
     }
 
     /// Decompose a time interval since the reference date into `DateComponents`.
     func dateComponents(fromTimeIntervalSinceReferenceDate interval: Double) -> DateComponents {
-        let secondsSince1970 = interval + Calendar.referenceDateToUnixEpoch + Double(timeZone.secondsFromGMT)
+        let secondsSince1970 = local(interval + Calendar.referenceDateToUnixEpoch)
         // Floor division so negative intervals land on the correct day.
         let wholeSeconds = Int(secondsSince1970.rounded(.down))
         var days = wholeSeconds / 86400
@@ -147,133 +309,68 @@ extension Calendar {
             weekday: Calendar.weekday(fromDaysSinceEpoch: days),
             timeZone: timeZone)
     }
-}
 
-// MARK: - Date Bridging
+    // MARK: The package's own arithmetic
 
-extension Calendar {
-
-    /// Convert `DateComponents` into a `Date`, or `nil` if year/month/day are missing.
-    public func date(from components: DateComponents) -> Date? {
+    func gregorianDate(from components: DateComponents) -> Date? {
         guard let interval = timeIntervalSinceReferenceDate(from: components) else {
             return nil
         }
         return Date(timeIntervalSinceReferenceDate: interval)
     }
 
-    /// Decompose a `Date` into its Gregorian components.
-    ///
-    /// - Note: `components` is accepted for source compatibility with
-    ///   Foundation; this shim always populates every supported field.
-    public func dateComponents(_ components: Set<Component>, from date: Date) -> DateComponents {
+    func gregorianComponents(from date: Date) -> DateComponents {
         dateComponents(fromTimeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
     }
 
-    /// The value of a single Gregorian component of `date`.
-    public func component(_ component: Component, from date: Date) -> Int {
-        let all = dateComponents(fromTimeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
-        switch component {
-        case .era: return all.era ?? 1
-        case .year: return all.year ?? 0
-        case .month: return all.month ?? 0
-        case .day: return all.day ?? 0
-        case .hour: return all.hour ?? 0
-        case .minute: return all.minute ?? 0
-        case .second: return all.second ?? 0
-        case .nanosecond: return all.nanosecond ?? 0
-        case .weekday: return all.weekday ?? 0
-        }
-    }
-}
-
-// MARK: - Calendrical Calculations
-
-extension Calendar {
-
-    /// The first moment of the given date's day, in the calendar's time zone.
-    public func startOfDay(for date: Date) -> Date {
-        let offset = Double(timeZone.secondsFromGMT)
-        let secondsSince1970 = date.timeIntervalSinceReferenceDate + Calendar.referenceDateToUnixEpoch + offset
-        let days = (secondsSince1970 / 86400).rounded(.down)
-        return Date(timeIntervalSinceReferenceDate: days * 86400 - offset - Calendar.referenceDateToUnixEpoch)
+    func gregorianStartOfDay(for date: Date) -> Date {
+        let days = (local(date.timeIntervalSince1970) / 86400).rounded(.down)
+        return Date(timeIntervalSince1970: Calendar.moment(ofLocal: days * 86400, in: timeZone))
     }
 
-    /// Whether two dates fall on the same day in the calendar's time zone.
-    public func isDate(_ date1: Date, inSameDayAs date2: Date) -> Bool {
-        startOfDay(for: date1) == startOfDay(for: date2)
-    }
+    /// Year and month arithmetic clamps the day of month to the length of
+    /// the target month. Years, months and days keep the time on the zone's
+    /// clocks; hours, minutes and seconds add that much time.
+    func gregorianDate(byAdding components: DateComponents, to date: Date) -> Date {
+        var interval = date.timeIntervalSince1970
 
-    /// Returns a date created by adding components to a given date.
-    ///
-    /// Year and month arithmetic clamps the day of month to the length of the
-    /// target month (e.g. Jan 31 plus one month is Feb 28 or 29).
-    ///
-    /// - Note: Only non-wrapping arithmetic is implemented.
-    public func date(byAdding components: DateComponents, to date: Date, wrappingComponents: Bool = false) -> Date? {
-        precondition(wrappingComponents == false, "FoundationEmbedded.Calendar does not implement wrapping arithmetic")
-
-        var interval = date.timeIntervalSinceReferenceDate
-
-        // Year and month arithmetic operates on the civil date, applied
-        // sequentially (year first, then month), clamping the day of month
-        // after each step — e.g. Feb 29 minus one year is Feb 28, and a
-        // subsequent month subtraction starts from the 28th.
-        if components.year != nil || components.month != nil {
-            let offset = Double(timeZone.secondsFromGMT)
-            let secondsSince1970 = interval + Calendar.referenceDateToUnixEpoch + offset
-            let days = Int((secondsSince1970 / 86400).rounded(.down))
-            let secondsOfDay = secondsSince1970 - Double(days) * 86400
+        let years = components.year ?? 0
+        let months = components.month ?? 0
+        let addedDays = components.day ?? 0
+        if years != 0 || months != 0 || addedDays != 0 {
+            let localSeconds = local(interval)
+            let days = Int((localSeconds / 86400).rounded(.down))
+            let secondsOfDay = localSeconds - Double(days) * 86400
             var civil = Calendar.civilFromDays(days)
 
-            if let years = components.year, years != 0 {
+            // Applied in turn (year first, then month), clamping the day of
+            // month after each step — e.g. Feb 29 minus one year is Feb 28,
+            // and a subsequent month subtraction starts from the 28th.
+            if years != 0 {
                 let year = civil.year + years
                 civil = (year, civil.month, Swift.min(civil.day, Calendar.daysInMonth(year: year, month: civil.month)))
             }
-            if let deltaMonths = components.month, deltaMonths != 0 {
-                let monthIndex = civil.year * 12 + (civil.month - 1) + deltaMonths
+            if months != 0 {
+                let monthIndex = civil.year * 12 + (civil.month - 1) + months
                 let year = Calendar.floorDivide(monthIndex, 12)
                 let month = monthIndex - year * 12 + 1
                 civil = (year, month, Swift.min(civil.day, Calendar.daysInMonth(year: year, month: month)))
             }
 
-            let newDays = Calendar.daysFromCivil(year: civil.year, month: civil.month, day: civil.day)
-            interval = Double(newDays) * 86400 + secondsOfDay - offset - Calendar.referenceDateToUnixEpoch
+            let newDays = Calendar.daysFromCivil(year: civil.year, month: civil.month, day: civil.day) + addedDays
+            interval = Calendar.moment(ofLocal: Double(newDays) * 86400 + secondsOfDay, in: timeZone)
         }
 
-        // Day and time arithmetic is absolute (fixed-offset zone, no DST).
-        interval += Double((components.day ?? 0) * 86400
-            + (components.hour ?? 0) * 3600
+        interval += Double((components.hour ?? 0) * 3600
             + (components.minute ?? 0) * 60
             + (components.second ?? 0))
         interval += Double(components.nanosecond ?? 0) / 1_000_000_000
 
-        return Date(timeIntervalSinceReferenceDate: interval)
+        return Date(timeIntervalSince1970: interval)
     }
 
-    /// Returns a date created by adding a value of a single component to a given date.
-    public func date(byAdding component: Component, value: Int, to date: Date, wrappingComponents: Bool = false) -> Date? {
-        var components = DateComponents()
-        switch component {
-        case .era, .weekday:
-            return nil
-        case .year: components.year = value
-        case .month: components.month = value
-        case .day: components.day = value
-        case .hour: components.hour = value
-        case .minute: components.minute = value
-        case .second: components.second = value
-        case .nanosecond: components.nanosecond = value
-        }
-        return self.date(byAdding: components, to: date, wrappingComponents: wrappingComponents)
-    }
-
-    /// The range of absolute values a smaller component can take in a larger
-    /// component that includes the given date.
-    ///
-    /// Supports `.day` in `.month`, `.day` in `.year`, and `.month` in `.year`;
-    /// returns `nil` for other combinations.
-    public func range(of smaller: Component, in larger: Component, for date: Date) -> Range<Int>? {
-        let components = dateComponents(fromTimeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
+    func gregorianRange(of smaller: Component, in larger: Component, for date: Date) -> Range<Int>? {
+        let components = gregorianComponents(from: date)
         guard let year = components.year, let month = components.month else {
             return nil
         }
@@ -289,3 +386,268 @@ extension Calendar {
         }
     }
 }
+
+// MARK: - Date Bridging
+
+extension Calendar {
+
+    /// Convert `DateComponents` into a `Date`, or `nil` if there is no such
+    /// date. The package's own arithmetic needs the year, month and day.
+    public func date(from components: DateComponents) -> Date? {
+        #if PlatformHooks
+        var calendar = self
+        if let zone = components.timeZone {
+            calendar.timeZone = zone
+        }
+        return Platform.date(from: components.fields, in: calendar)
+        #else
+        return gregorianDate(from: components)
+        #endif
+    }
+
+    /// Decompose a `Date` into its components.
+    ///
+    /// - Note: The package's own arithmetic populates every field it
+    ///   supports, whatever is asked for. A platform's gives the ones asked
+    ///   for, as Foundation does.
+    public func dateComponents(_ components: Set<Component>, from date: Date) -> DateComponents {
+        #if PlatformHooks
+        guard let fields = Platform.fields(of: date, in: self) else {
+            return DateComponents()
+        }
+        return DateComponents(fields: fields, only: components)
+        #else
+        return gregorianComponents(from: date)
+        #endif
+    }
+
+    /// The value of a single component of `date`.
+    public func component(_ component: Component, from date: Date) -> Int {
+        #if PlatformHooks
+        guard let fields = Platform.fields(of: date, in: self) else {
+            return 0
+        }
+        let value = fields[Int(component.unit)]
+        return value == Platform.none ? 0 : value
+        #else
+        let all = gregorianComponents(from: date)
+        switch component {
+        case .era: return all.era ?? 1
+        case .year: return all.year ?? 0
+        case .month: return all.month ?? 0
+        case .day: return all.day ?? 0
+        case .hour: return all.hour ?? 0
+        case .minute: return all.minute ?? 0
+        case .second: return all.second ?? 0
+        case .nanosecond: return all.nanosecond ?? 0
+        case .weekday: return all.weekday ?? 0
+        case .weekdayOrdinal, .weekOfMonth, .weekOfYear, .yearForWeekOfYear, .dayOfYear: return 0
+        }
+        #endif
+    }
+}
+
+// MARK: - Calendrical Calculations
+
+extension Calendar {
+
+    /// The first moment of the given date's day, in the calendar's time zone.
+    public func startOfDay(for date: Date) -> Date {
+        #if PlatformHooks
+        return Platform.start(of: Component.day.unit, containing: date, in: self) ?? date
+        #else
+        return gregorianStartOfDay(for: date)
+        #endif
+    }
+
+    /// Whether two dates fall on the same day in the calendar's time zone.
+    public func isDate(_ date1: Date, inSameDayAs date2: Date) -> Bool {
+        startOfDay(for: date1) == startOfDay(for: date2)
+    }
+
+    /// Returns a date created by adding components to a given date.
+    ///
+    /// Year and month arithmetic clamps the day of month to the length of the
+    /// target month (e.g. Jan 31 plus one month is Feb 28 or 29).
+    ///
+    /// - Note: The package's own arithmetic implements only non-wrapping
+    ///   arithmetic. A platform's does both.
+    public func date(byAdding components: DateComponents, to date: Date, wrappingComponents: Bool = false) -> Date? {
+        #if PlatformHooks
+        return Platform.adding(components.fields, to: date, wrapping: wrappingComponents, in: self)
+        #else
+        precondition(wrappingComponents == false, "FoundationEmbedded.Calendar does not implement wrapping arithmetic")
+        return gregorianDate(byAdding: components, to: date)
+        #endif
+    }
+
+    /// Returns a date created by adding a value of a single component to a given date.
+    public func date(byAdding component: Component, value: Int, to date: Date, wrappingComponents: Bool = false) -> Date? {
+        var components = DateComponents()
+        switch component {
+        case .era, .weekday:
+            return nil
+        default:
+            components.setValue(value, for: component)
+        }
+        #if !PlatformHooks
+        switch component {
+        case .weekdayOrdinal, .weekOfMonth, .weekOfYear, .yearForWeekOfYear, .dayOfYear:
+            return nil
+        default:
+            break
+        }
+        #endif
+        return self.date(byAdding: components, to: date, wrappingComponents: wrappingComponents)
+    }
+
+    /// The range of absolute values a smaller component can take in a larger
+    /// component that includes the given date.
+    ///
+    /// The package's own arithmetic supports `.day` in `.month`, `.day` in
+    /// `.year`, and `.month` in `.year`, and returns `nil` for other
+    /// combinations.
+    public func range(of smaller: Component, in larger: Component, for date: Date) -> Range<Int>? {
+        #if PlatformHooks
+        return Platform.range(of: smaller.unit, in: larger.unit, for: date, in: self)
+        #else
+        return gregorianRange(of: smaller, in: larger, for: date)
+        #endif
+    }
+}
+
+#if PlatformHooks
+
+// MARK: - From the platform
+
+extension Calendar {
+
+    /// Foundation's `Calendar.MatchingPolicy`.
+    public enum MatchingPolicy: Sendable, Hashable {
+        /// If the time doesn't exist that day, the next that does.
+        case nextTime
+        /// The same, keeping the smaller components.
+        case nextTimePreservingSmallerComponents
+        /// The same, going back.
+        case previousTimePreservingSmallerComponents
+        /// Only a moment with exactly these components.
+        case strict
+
+        var number: Int32 {
+            switch self {
+            case .nextTime: return 0
+            case .nextTimePreservingSmallerComponents: return 1
+            case .previousTimePreservingSmallerComponents: return 2
+            case .strict: return 3
+            }
+        }
+    }
+
+    /// Foundation's `Calendar.SearchDirection`.
+    public enum SearchDirection: Sendable, Hashable {
+        case forward
+        case backward
+    }
+
+    /// The difference between two dates, in the components asked for.
+    public func dateComponents(_ components: Set<Component>, from start: Date, to end: Date) -> DateComponents {
+        guard let fields = Platform.difference(components.units, from: start, to: end, in: self) else {
+            return DateComponents()
+        }
+        return DateComponents(fields: fields, only: components)
+    }
+
+    /// Where the component that holds a date starts and ends: its day, its
+    /// week, its month.
+    public func dateInterval(of component: Component, for date: Date) -> DateInterval? {
+        guard let start = Platform.start(of: component.unit, containing: date, in: self),
+              let end = Platform.end(of: component.unit, containing: date, in: self),
+              end >= start else {
+            return nil
+        }
+        return DateInterval(start: start, end: end)
+    }
+
+    /// Which one of the smaller component a date is in, within the larger:
+    /// the day of the year.
+    public func ordinality(of smaller: Component, in larger: Component, for date: Date) -> Int? {
+        Platform.ordinality(of: smaller.unit, in: larger.unit, for: date, in: self)
+    }
+
+    /// The nearest date after one, or before it, that has the components
+    /// given.
+    public func nextDate(
+        after date: Date,
+        matching components: DateComponents,
+        matchingPolicy: MatchingPolicy,
+        direction: SearchDirection = .forward
+    ) -> Date? {
+        Platform.nextDate(
+            after: date, matching: components.fields, policy: matchingPolicy.number,
+            backward: direction == .backward, in: self)
+    }
+
+    public func isDateInWeekend(_ date: Date) -> Bool {
+        Platform.isWeekend(date, in: self)
+    }
+
+    public func isDateInToday(_ date: Date) -> Bool {
+        isDate(date, inSameDayAs: Platform.now())
+    }
+
+    public func isDateInYesterday(_ date: Date) -> Bool {
+        guard let yesterday = self.date(byAdding: .day, value: -1, to: Platform.now()) else {
+            return false
+        }
+        return isDate(date, inSameDayAs: yesterday)
+    }
+
+    public func isDateInTomorrow(_ date: Date) -> Bool {
+        guard let tomorrow = self.date(byAdding: .day, value: 1, to: Platform.now()) else {
+            return false
+        }
+        return isDate(date, inSameDayAs: tomorrow)
+    }
+
+    /// Compares two dates down to a component: their days, their months.
+    public func compare(_ date1: Date, to date2: Date, toGranularity component: Component) -> ComparisonResult {
+        guard let start1 = Platform.start(of: component.unit, containing: date1, in: self),
+              let start2 = Platform.start(of: component.unit, containing: date2, in: self) else {
+            return date1.compare(date2)
+        }
+        return start1.compare(start2)
+    }
+
+    public func isDate(_ date1: Date, equalTo date2: Date, toGranularity component: Component) -> Bool {
+        compare(date1, to: date2, toGranularity: component) == .orderedSame
+    }
+
+    // The names, in the calendar's locale. Weekdays start at Sunday.
+
+    public var monthSymbols: [String] { Platform.symbols(0, in: self) }
+    public var shortMonthSymbols: [String] { Platform.symbols(1, in: self) }
+    public var veryShortMonthSymbols: [String] { Platform.symbols(2, in: self) }
+    public var standaloneMonthSymbols: [String] { Platform.symbols(3, in: self) }
+    public var shortStandaloneMonthSymbols: [String] { Platform.symbols(4, in: self) }
+    public var veryShortStandaloneMonthSymbols: [String] { Platform.symbols(5, in: self) }
+    public var weekdaySymbols: [String] { Platform.symbols(6, in: self) }
+    public var shortWeekdaySymbols: [String] { Platform.symbols(7, in: self) }
+    public var veryShortWeekdaySymbols: [String] { Platform.symbols(8, in: self) }
+    public var standaloneWeekdaySymbols: [String] { Platform.symbols(9, in: self) }
+    public var shortStandaloneWeekdaySymbols: [String] { Platform.symbols(10, in: self) }
+    public var veryShortStandaloneWeekdaySymbols: [String] { Platform.symbols(11, in: self) }
+    public var eraSymbols: [String] { Platform.symbols(12, in: self) }
+    public var longEraSymbols: [String] { Platform.symbols(13, in: self) }
+
+    public var amSymbol: String {
+        let symbols = Platform.symbols(14, in: self)
+        return symbols.count == 2 ? symbols[0] : "AM"
+    }
+
+    public var pmSymbol: String {
+        let symbols = Platform.symbols(14, in: self)
+        return symbols.count == 2 ? symbols[1] : "PM"
+    }
+}
+
+#endif

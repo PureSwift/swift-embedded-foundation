@@ -18,7 +18,13 @@ let package = Package(
         .library(
             name: "FoundationEmbedded",
             targets: ["FoundationEmbedded"]
-        )
+        ),
+        // The C header a platform implements when `FoundationEmbedded` is
+        // built with the `PlatformHooks` trait.
+        .library(
+            name: "FoundationEmbeddedPlatform",
+            targets: ["FoundationEmbeddedPlatform"]
+        ),
     ],
     traits: [
         .trait(
@@ -33,15 +39,50 @@ let package = Package(
                 themselves, or to supply your own.
                 """
         ),
+        .trait(
+            name: "PlatformHooks",
+            description: """
+                Ask a platform for what the package cannot know by itself: \
+                the clock, the user's time zone and locale, named time \
+                zones, and calendar arithmetic in any calendar. The \
+                package then calls the functions declared in \
+                `FoundationEmbeddedPlatform.h`, which the platform must \
+                define; the linker joins the two. Without this trait the \
+                package reads the C library's clock and local time zone \
+                where there is one, and is otherwise self-contained.
+                """
+        ),
         .default(enabledTraits: ["FloatingPointParsingShims"]),
     ],
     targets: [
+        // What the package uses of the C library, where there is one: the
+        // clock and the local time zone. Header only.
         .target(
-            name: "FoundationEmbedded"
+            name: "FoundationEmbeddedShims"
+        ),
+        // The functions a platform defines. Header only.
+        .target(
+            name: "FoundationEmbeddedPlatform"
+        ),
+        .target(
+            name: "FoundationEmbedded",
+            dependencies: [
+                "FoundationEmbeddedShims",
+                .target(name: "FoundationEmbeddedPlatform", condition: .when(traits: ["PlatformHooks"])),
+            ]
+        ),
+        // A platform for the tests: the header over Foundation itself.
+        .target(
+            name: "FoundationEmbeddedTestPlatform",
+            dependencies: ["FoundationEmbeddedPlatform"],
+            path: "Tests/FoundationEmbeddedTestPlatform"
         ),
         .testTarget(
             name: "FoundationEmbeddedTests",
-            dependencies: ["FoundationEmbedded"]
+            dependencies: [
+                "FoundationEmbedded",
+                .target(name: "FoundationEmbeddedTestPlatform", condition: .when(traits: ["PlatformHooks"])),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

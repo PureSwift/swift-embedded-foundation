@@ -26,9 +26,7 @@ extension Date {
 
         /// Formats a date as `Sun, 06 Nov 1994 08:49:37 GMT`.
         public func format(_ date: Date) -> String {
-            let calendar = Calendar(identifier: .gregorian)
-            let components = calendar.dateComponents(
-                [.weekday, .day, .month, .year, .hour, .minute, .second], from: date)
+            let components = Calendar(gregorianIn: .gmt).gregorianComponents(from: date)
 
             // "Sun, 06 Nov 1994 08:49:37 GMT" is 29 bytes.
             var utf8: [UInt8] = []
@@ -69,7 +67,7 @@ extension Date {
         ///   untyped-throwing equivalent.
         public func parse(_ value: String) throws(HTTPDateParseError) -> Date {
             let components = try HTTPDate.components(from: value)
-            guard let date = Calendar(identifier: .gregorian).date(from: components) else {
+            guard let date = Calendar(gregorianIn: .gmt).gregorianDate(from: components) else {
                 throw HTTPDateParseError(value: value)
             }
             return date

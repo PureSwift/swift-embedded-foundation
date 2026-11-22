@@ -1,0 +1,4 @@
+module FoundationEmbeddedPlatform {
+    header "FoundationEmbeddedPlatform.h"
+    export *
+}

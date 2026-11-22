@@ -14,8 +14,11 @@ jobs:
       code-quality: write # required by actions/upload-code-coverage
     steps:
     - uses: actions/checkout@v4
+    # Every trait, PlatformHooks included: that build has the more code.
     - name: Export coverage and enforce threshold
       run: Scripts/coverage.sh
+      env:
+        SWIFT_TEST_FLAGS: --enable-all-traits
     - name: Upload coverage to GitHub Code Quality
       uses: actions/upload-code-coverage@v1
       with:

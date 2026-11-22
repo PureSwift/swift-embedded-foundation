@@ -78,6 +78,13 @@ echo "==> Toolchain: $TOOLCHAIN"
 
 SOURCES=(Sources/FoundationEmbedded/*.swift)
 
+# The package's two C targets are headers. `FoundationEmbeddedShims` is what
+# the package uses of the C library, where there is one: a bare-metal target
+# has no `time.h`, and the header then answers that there is no clock.
+# `FoundationEmbeddedPlatform` is what a platform defines when the package is
+# built with the `PlatformHooks` trait.
+C_MODULES=(-I Sources/FoundationEmbeddedShims/include -I Sources/FoundationEmbeddedPlatform/include)
+
 # This script drives swiftc directly, so SwiftPM's traits are not applied
 # automatically — the package's default-enabled traits are passed by hand.
 TRAITS=(-D FloatingPointParsingShims)
@@ -91,11 +98,15 @@ for target in "${BARE_METAL_TARGETS[@]}"; do
     fi
     echo "==> Compiling for $target"
     "$SWIFTC" -target "$target" -enable-experimental-feature Embedded -wmo \
-        -parse-as-library "${TRAITS[@]}" -c "${SOURCES[@]}" -o /dev/null
+        -parse-as-library "${TRAITS[@]}" "${C_MODULES[@]}" -c "${SOURCES[@]}" -o /dev/null
 
     # The library must also build with every optional trait disabled.
     "$SWIFTC" -target "$target" -enable-experimental-feature Embedded -wmo \
-        -parse-as-library -c "${SOURCES[@]}" -o /dev/null
+        -parse-as-library "${C_MODULES[@]}" -c "${SOURCES[@]}" -o /dev/null
+
+    # And with a platform under it.
+    "$SWIFTC" -target "$target" -enable-experimental-feature Embedded -wmo \
+        -parse-as-library "${TRAITS[@]}" -D PlatformHooks "${C_MODULES[@]}" -c "${SOURCES[@]}" -o /dev/null
 done
 
 # --- 2. Host build + run (macOS only) --------------------------------------
@@ -113,10 +124,31 @@ BIN="$(mktemp -t embedded-smoke-test)"
 
 echo "==> Building + running smoke test for $HOST_TARGET"
 "$SWIFTC" -target "$HOST_TARGET" -sdk "$SDK" \
-    -enable-experimental-feature Embedded -wmo "${TRAITS[@]}" \
+    -enable-experimental-feature Embedded -wmo "${TRAITS[@]}" "${C_MODULES[@]}" \
     "${SOURCES[@]}" EmbeddedTests/main.swift \
     -L "$HOST_LIB" -lswiftUnicodeDataTables \
     -o "$BIN"
 
 "$BIN"
 echo "==> Embedded smoke test passed."
+
+# --- 3. The same, with a platform ------------------------------------------
+#
+# The package built with the `PlatformHooks` trait, linked with a platform
+# written in C (EmbeddedTests/Platform/platform.c): the two meet at the linker.
+
+PLATFORM_OBJECT="$(mktemp -t embedded-platform).o"
+PLATFORM_BIN="$(mktemp -t embedded-platform-test)"
+
+echo "==> Building + running smoke test with a platform for $HOST_TARGET"
+"$TOOLCHAIN/usr/bin/clang" -target "$HOST_TARGET" -isysroot "$SDK" \
+    -I Sources/FoundationEmbeddedPlatform/include \
+    -c EmbeddedTests/Platform/platform.c -o "$PLATFORM_OBJECT"
+"$SWIFTC" -target "$HOST_TARGET" -sdk "$SDK" \
+    -enable-experimental-feature Embedded -wmo "${TRAITS[@]}" -D PlatformHooks "${C_MODULES[@]}" \
+    "${SOURCES[@]}" EmbeddedTests/Platform/main.swift "$PLATFORM_OBJECT" \
+    -L "$HOST_LIB" -lswiftUnicodeDataTables \
+    -o "$PLATFORM_BIN"
+
+"$PLATFORM_BIN"
+echo "==> Embedded smoke test with a platform passed."

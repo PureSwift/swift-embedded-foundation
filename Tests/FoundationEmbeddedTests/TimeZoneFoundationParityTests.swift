@@ -30,7 +30,11 @@ import Foundation
             guard let ours = FoundationEmbedded.TimeZone(identifier: identifier) else { continue }
             let theirs = Foundation.TimeZone(identifier: identifier)
             #expect(theirs != nil, "Foundation rejected an identifier we accepted: \(identifier)")
-            #expect(ours.secondsFromGMT == theirs?.secondsFromGMT())
+            // At a fixed moment: a named zone, which only a platform
+            // gives, has no one offset.
+            let moment = 1_782_907_200.0
+            #expect(ours.secondsFromGMT(for: FoundationEmbedded.Date(timeIntervalSince1970: moment))
+                == theirs?.secondsFromGMT(for: Foundation.Date(timeIntervalSince1970: moment)))
         }
     }
 }

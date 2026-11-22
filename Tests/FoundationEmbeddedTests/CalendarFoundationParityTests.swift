@@ -24,7 +24,7 @@ import Foundation
     ]
 
     @Test func dateFromComponentsMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         for c in cases {
             let ours = FoundationEmbedded.DateComponents(
                 year: c.year, month: c.month, day: c.day,
@@ -40,7 +40,7 @@ import Foundation
     }
 
     @Test func componentsFromDateMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         let intervals: [Double] = [0, -1, 1, -978307200, 748889145, -2203891200, 4306603530]
         for interval in intervals {
             let ours = ourCalendar.dateComponents(fromTimeIntervalSinceReferenceDate: interval)
@@ -60,7 +60,7 @@ import Foundation
     }
 
     @Test func startOfDayMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         let intervals: [Double] = [0, -1, 748889145, 86400.5, -978307200]
         for interval in intervals {
             let ours = ourCalendar.startOfDay(for: .init(timeIntervalSinceReferenceDate: interval))
@@ -71,7 +71,7 @@ import Foundation
     }
 
     @Test func dateByAddingMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         // (year, month, day) to add, applied to a set of base dates.
         let additions: [(year: Int, month: Int, day: Int)] = [
             (0, 1, 0), (1, 0, 0), (0, 0, 40), (0, -2, 0), (-1, -1, -1), (0, 13, 0), (2, 1, 5),
@@ -99,7 +99,7 @@ import Foundation
     }
 
     @Test func rangeOfComponentMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         let baseComponents: [(year: Int, month: Int)] = [(2024, 2), (2023, 2), (2024, 6), (2000, 2), (1900, 2)]
         for base in baseComponents {
             let ourDate = ourCalendar.date(from: FoundationEmbedded.DateComponents(
@@ -118,7 +118,7 @@ import Foundation
     }
 
     @Test func componentTimeZoneOffsetMatchesFoundation() {
-        let ourCalendar = FoundationEmbedded.Calendar.current
+        let ourCalendar = FoundationEmbedded.Calendar.gmt
         for offset in [3600, -28800, 19800] {
             let ours = FoundationEmbedded.DateComponents(
                 year: 2001, month: 1, day: 1, hour: 0, minute: 0, second: 0,

@@ -6,10 +6,19 @@
 //  (e.g. Embedded Swift). Compiles on any platform; the consumer is
 //  responsible for gating between this and `Foundation.Date`.
 //
-//  Clock-dependent API (`init()`, `now`, `timeIntervalSinceNow`) is omitted:
-//  there is no portable clock on bare metal. Consumers construct dates from
-//  externally-sourced time intervals.
+//  The clock (`init()`, `now`, `timeIntervalSinceNow`) is the C library's
+//  `timespec_get`, which C11 has and so every hosted platform and WASI do
+//  (`clock_gettime` on Android, which has the other only from API 29).
+//  Built with the `PlatformHooks` trait it is the platform's
+//  (`FoundationEmbeddedPlatform.h`). On bare metal with neither there is
+//  no clock: reading it stops the program.
 //
+
+#if PlatformHooks
+import FoundationEmbeddedPlatform
+#else
+import FoundationEmbeddedShims
+#endif
 
 public typealias TimeInterval = Double
 
@@ -26,6 +35,30 @@ public struct Date: Sendable {
 }
 
 extension Date {
+
+    /// The current date and time.
+    public init() {
+        #if PlatformHooks
+        self.init(timeIntervalSince1970: swift_embedded_clock_now())
+        #else
+        var seconds: Double = 0
+        guard swift_embedded_shims_now(&seconds) else {
+            fatalError("FoundationEmbedded: no clock. Build with the PlatformHooks trait and supply one.")
+        }
+        self.init(timeIntervalSince1970: seconds)
+        #endif
+    }
+
+    /// The current date and time.
+    public static var now: Date {
+        Date()
+    }
+
+    /// The interval between the date and now: negative for a date in the
+    /// past.
+    public var timeIntervalSinceNow: TimeInterval {
+        timeIntervalSince(Date())
+    }
 
     /// The number of seconds from 1 January 1970 to the reference date, 1 January 2001.
     ///

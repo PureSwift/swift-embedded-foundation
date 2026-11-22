@@ -22,7 +22,9 @@ import Foundation
     @Test func currentIsValidFoundationIdentifier() {
         let identifier = FoundationEmbedded.Locale.current.identifier
         #expect(Foundation.Locale(identifier: identifier).identifier == identifier)
+        #if !PlatformHooks
         #expect(identifier == "en_US_POSIX")
+        #endif
     }
 }
 #endif

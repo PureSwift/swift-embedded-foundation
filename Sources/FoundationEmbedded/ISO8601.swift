@@ -152,8 +152,7 @@ extension Date.ISO8601FormatStyle {
             }
         }
 
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
+        let calendar = Calendar(gregorianIn: timeZone)
         let components = calendar.dateComponents(
             fromTimeIntervalSinceReferenceDate: interval)
 
@@ -334,7 +333,7 @@ extension Date.ISO8601FormatStyle {
             second: second == 60 ? 59 : second)
         components.timeZone = TimeZone(secondsFromGMT: offset)
 
-        guard let date = Calendar(identifier: .gregorian).date(from: components) else {
+        guard let date = Calendar(gregorianIn: .gmt).gregorianDate(from: components) else {
             throw fail()
         }
         return date + fraction

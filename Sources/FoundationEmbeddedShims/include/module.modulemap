@@ -1,0 +1,4 @@
+module FoundationEmbeddedShims {
+    header "FoundationEmbeddedShims.h"
+    export *
+}

@@ -5,59 +5,102 @@ on:
     branches: [master]
   pull_request:
 
+# Every platform is tested with the latest patch of each Swift release the
+# package supports. To move to a new patch, or add a release, change the
+# `swift` list of each job.
+
 jobs:
   macos:
-    name: macOS
+    name: macOS (Swift ${{ matrix.swift }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3.3", "6.4.3"]
     steps:
     - uses: actions/checkout@v4
+    # Xcode has one Swift; a swift.org toolchain gives the one asked for.
+    # It installs to /Library/Developer/Toolchains.
+    - name: Install swift.org toolchain
+      run: |
+        set -euo pipefail
+        PKG=swift-${{ matrix.swift }}-RELEASE-osx.pkg
+        curl -fsSL -o "$PKG" "https://download.swift.org/swift-${{ matrix.swift }}-release/xcode/swift-${{ matrix.swift }}-RELEASE/${PKG}"
+        sudo installer -pkg "$PKG" -target /
+        echo "/Library/Developer/Toolchains/swift-${{ matrix.swift }}-RELEASE.xctoolchain/usr/bin" >> "$GITHUB_PATH"
+    - name: Swift version
+      run: swift --version
     - name: Test
       run: swift test
+    # With the PlatformHooks trait, over the tests' own platform.
+    - name: Test with a platform
+      run: swift test --enable-all-traits
 
   linux:
-    name: Linux (Swift 6.3.3)
+    name: Linux (Swift ${{ matrix.swift }})
     runs-on: ubuntu-latest
-    container: swift:6.3.3
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3.3", "6.4.3"]
+    container: swift:${{ matrix.swift }}
     steps:
     - uses: actions/checkout@v4
     - name: Test
       run: swift test
+    - name: Test with a platform
+      run: swift test --enable-all-traits
 
   android:
-    name: Android (Swift 6.3.2)
-    runs-on: ubuntu-latest
+    name: Android (Swift ${{ matrix.swift }})
+    # Not ubuntu-latest: the action installs a host toolchain for the
+    # runner's Ubuntu, and Swift 6.3 has none for 26.04.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3.3", "6.4.3"]
     steps:
     - uses: actions/checkout@v4
     - name: Build and test on Android emulator
       uses: skiptools/swift-android-action@v2
       with:
-        swift-version: 6.3.2
+        swift-version: ${{ matrix.swift }}
 
   embedded:
-    name: Embedded Swift (6.3.3)
+    name: Embedded Swift (${{ matrix.swift }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3.3", "6.4.3"]
     steps:
     - uses: actions/checkout@v4
     # The Xcode-bundled toolchain has no Embedded stdlib; install a swift.org
-    # toolchain, which ships it. Installs to /Library/Developer/Toolchains,
-    # where Scripts/embedded-test.sh discovers it.
+    # toolchain, which ships it. Installs to /Library/Developer/Toolchains.
     - name: Install swift.org toolchain
       run: |
         set -euo pipefail
-        PKG=swift-6.3.3-RELEASE-osx.pkg
-        curl -fsSL -o "$PKG" "https://download.swift.org/swift-6.3.3-release/xcode/swift-6.3.3-RELEASE/${PKG}"
+        PKG=swift-${{ matrix.swift }}-RELEASE-osx.pkg
+        curl -fsSL -o "$PKG" "https://download.swift.org/swift-${{ matrix.swift }}-release/xcode/swift-${{ matrix.swift }}-RELEASE/${PKG}"
         sudo installer -pkg "$PKG" -target /
     - name: Cross-compile for bare metal + run embedded smoke test
       run: Scripts/embedded-test.sh
+      env:
+        EMBEDDED_TOOLCHAIN: /Library/Developer/Toolchains/swift-${{ matrix.swift }}-RELEASE.xctoolchain
 
   windows:
-    name: Windows (Swift 6.3.2)
+    name: Windows (Swift ${{ matrix.swift }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3.3", "6.4.3"]
     steps:
     - uses: actions/checkout@v4
     - uses: compnerd/gha-setup-swift@main
       with:
-        branch: swift-6.3.2-release
-        tag: 6.3.2-RELEASE
+        branch: swift-${{ matrix.swift }}-release
+        tag: ${{ matrix.swift }}-RELEASE
     - name: Test
       run: swift test
