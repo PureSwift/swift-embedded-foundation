@@ -29,8 +29,19 @@
 
 /// The time by the C library's clock, in seconds since 1970 UTC: C11's
 /// `timespec_get`. False where there is no such clock.
+///
+/// Android has `timespec_get` only from API 29: before it the function is
+/// undeclared, or declared and absent when the program runs. So Android
+/// reads the same clock with `clock_gettime`, which every API level has.
 static inline bool swift_embedded_shims_now(double *seconds) {
-#if defined(FOUNDATION_EMBEDDED_HAS_TIME) && defined(TIME_UTC)
+#if defined(FOUNDATION_EMBEDDED_HAS_TIME) && defined(__ANDROID__)
+    struct timespec time;
+    if (clock_gettime(CLOCK_REALTIME, &time) != 0) {
+        return false;
+    }
+    *seconds = (double)time.tv_sec + (double)time.tv_nsec / 1000000000.0;
+    return true;
+#elif defined(FOUNDATION_EMBEDDED_HAS_TIME) && defined(TIME_UTC)
     struct timespec time;
     if (timespec_get(&time, TIME_UTC) != TIME_UTC) {
         return false;

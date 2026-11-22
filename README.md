@@ -65,7 +65,8 @@ Foundation's untyped-throwing equivalents.
 ## The clock and the time zone
 
 `Date()` and `Date.now` call C11's `timespec_get`, which every hosted
-platform has, and WASI. `TimeZone.current` is the process's zone, read with
+platform has, and WASI. Android has it only from API 29, so there they call
+`clock_gettime`. `TimeZone.current` is the process's zone, read with
 `localtime_r`: its offset follows daylight saving, and `Calendar.current`
 counts in it. The C library has no name for that zone, so `identifier` is the
 `TZ` variable's value, or `"Local"`.

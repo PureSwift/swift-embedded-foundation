@@ -7,7 +7,8 @@
 //  responsible for gating between this and `Foundation.Date`.
 //
 //  The clock (`init()`, `now`, `timeIntervalSinceNow`) is the C library's
-//  `timespec_get`, which C11 has and so every hosted platform and WASI do.
+//  `timespec_get`, which C11 has and so every hosted platform and WASI do
+//  (`clock_gettime` on Android, which has the other only from API 29).
 //  Built with the `PlatformHooks` trait it is the platform's
 //  (`FoundationEmbeddedPlatform.h`). On bare metal with neither there is
 //  no clock: reading it stops the program.
